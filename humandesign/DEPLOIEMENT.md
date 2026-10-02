@@ -150,7 +150,9 @@ Le premier appel après un redémarrage peut prendre une dizaine de secondes. Le
 
 ### Ce que le moteur répond
 
-`type`, `type_fr`, `authority`, `authority_fr`, `profile`, `profile_label`, `cross`, `channels`, `defined_centers`, `definition`, `active_gates`, `summary`, `place_resolved`, `time_warning`, et `svg` si demandé.
+`type`, `type_fr`, `authority`, `authority_fr`, `profile`, `profile_label`, `cross`, `channels`, `defined_centers`, `definition`, `active_gates`, `summary`, `place_resolved`, `time_warning`, `details`, et `svg` si demandé.
+
+`details` contient le thème complet : `birth_utc`, `design_utc`, `cross_gates`, `quarter`, `variables` (les 4 flèches), et pour `personality` comme pour `design`, chacune des 13 planètes avec `gate`, `line`, `color`, `tone`, `base`, `fixing` (▲ ▼ ★), `label` (ex. `6.5▼`) et `longitude`.
 
 En cas d'erreur : `{"error": {"code": "…", "message": "…"}}` avec le code HTTP correspondant (`400` entrée invalide, `401` clé, `413` corps de plus de 10 Ko, `422` heure inconnue ou lieu introuvable, `503` géocodage indisponible).
 

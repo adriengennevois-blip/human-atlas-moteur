@@ -187,6 +187,25 @@ def resolve_place(req: dict) -> dict:
     return out
 
 
+def _activation(a) -> dict:
+    return {"gate": a.gate, "line": a.line, "color": a.color, "tone": a.tone, "base": a.base,
+            "fixing": a.fixing, "label": a.label, "longitude": round(a.longitude, 6)}
+
+
+def details(c) -> dict:
+    """Le thème complet : chaque planète côté Personnalité et Design, variables, quart.
+    (Pas de données de naissance en clair : seulement les instants UTC calculés.)"""
+    return {
+        "birth_utc": c.birth_utc.isoformat(),
+        "design_utc": c.design_utc.isoformat(),
+        "cross_gates": c.cross_gates,
+        "quarter": c.meta["quarter"],
+        "variables": c.variables,
+        "personality": {p: _activation(c.personality[p]) for p in D.PLANETS},
+        "design": {p: _activation(c.design[p]) for p in D.PLANETS},
+    }
+
+
 def compute(req: dict) -> dict:
     place = resolve_place(req)
     rt = local_to_utc(req["local"], place["tz"])
@@ -214,6 +233,7 @@ def compute(req: dict) -> dict:
         "summary": summary_sentence(c),
         "place_resolved": place,
         "time_warning": " ".join(warnings) or None,
+        "details": details(c),
     }
     if req["include_svg"]:
         out["svg"] = render_bodygraph(c, skin=req["skin"], name=req["name"])
