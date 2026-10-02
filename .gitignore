@@ -1,0 +1,20 @@
+# Environnements virtuels
+.venv/
+venv/
+env/
+.bootstrap/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Secrets : ne jamais publier
+.env
+.env.*
+
+# Système
+.DS_Store
+
+# Clé de l'API du moteur, gardée en local pour la copier dans l'app
+.cle-moteur
