@@ -2,7 +2,7 @@
 
 **Ce que ça fait :** l'app `real-world-weavers` envoie au moteur une date, une heure et un lieu de naissance. Le moteur, hébergé chez o2switch, calcule le thème (type, autorité, profil, croix, canaux…) et renvoie le bodygraph en SVG. Il ne stocke rien : il calcule, répond, puis oublie.
 
-Compte **20 minutes**, une seule fois. Quatre étapes, dans cet ordre.
+Compte **30 minutes**, une seule fois. Quatre étapes, dans cet ordre.
 
 ---
 
@@ -22,41 +22,91 @@ Ne mets jamais cette clé dans le code, dans un dépôt git ou dans le navigateu
 
 ---
 
-## 2. o2switch : mettre le moteur en ligne (15 min)
+## 2. o2switch : mettre le moteur en ligne (20 min)
 
-**a. Créer un sous-domaine :** cPanel → *Domaines* (ou *Sous-domaines*) → `moteur.humanatlas.fr`.
-Le HTTPS s'active tout seul en quelques minutes. Vérifie-le dans *SSL/TLS Status* si besoin.
+Voici comment il a été installé, pour pouvoir le refaire.
 
-**b. Envoyer les fichiers :** cPanel → *Gestionnaire de fichiers*.
-- Crée un dossier `moteur-hd` à la racine de ton compte, **pas** dans `public_html`.
-- Envoie le zip dedans et extrais-le.
-- Le contenu du dossier `humandesign` (les dossiers `hd/`, `ephe/`, les fichiers `api_app.py`, `passenger_wsgi.py`…) doit se retrouver directement dans `moteur-hd`.
+**a. Créer le sous-domaine :** cPanel → *Domaines* → *Créer un nouveau domaine* → `moteur.humanatlas.fr`. Le DNS de `humanatlas.fr` étant chez o2switch, l'enregistrement est créé automatiquement.
 
-**c. Créer l'application :** cPanel → *Setup Python App* → *Create Application*.
+**b. Activer le HTTPS :** cPanel → *Let's Encrypt™ SSL* → ligne `moteur.humanatlas.fr` → *+ Issue* → *Issue*. (AutoSSL n'est pas inclus dans l'offre : c'est cet outil qu'il faut utiliser. Le renouvellement est automatique.)
+
+**c. Récupérer le code :** en SSH (voir plus bas pour l'accès), cloner le dépôt public **hors** de `public_html` :
+
+```bash
+git clone https://github.com/adriengennevois-blip/human-atlas-moteur.git ~/moteur-hd
+```
+
+**d. Créer l'application :** cPanel → *Setup Python App* → *Create Application*.
 
 | Champ | Valeur |
 |---|---|
-| Python version | 3.11 ou plus récent (3.10 au minimum) |
-| Application root | `moteur-hd` |
+| Python version | 3.12 |
+| Application root | `moteur-hd/humandesign` |
 | Application URL | `moteur.humanatlas.fr` |
 | Application startup file | `passenger_wsgi.py` |
 | Application Entry point | `application` |
 
-**d. Variable d'environnement**, dans la même page (*Add Variable*) :
+Variables d'environnement, dans la même page (*Add Variable*) :
 
 | Nom | Valeur |
 |---|---|
 | `ENGINE_API_KEY` | la clé de l'étape 1 |
-| `SOURCE_URL` | l'adresse du dépôt public, par exemple `https://github.com/<ton-compte>/human-atlas-moteur` |
+| `SOURCE_URL` | `https://github.com/adriengennevois-blip/human-atlas-moteur` |
 
 `SOURCE_URL` sert à respecter la licence AGPL : le moteur doit indiquer à ceux qui l'utilisent où trouver son code source. Il la renvoie sur `https://moteur.humanatlas.fr/source`. Sans elle, cette adresse répond `503`.
 
-Clique sur *Create*.
+⚠️ **cPanel remplace `passenger_wsgi.py` par son propre modèle** à la création. Il faut ensuite remettre le nôtre : `cd ~/moteur-hd && git checkout -- humandesign/passenger_wsgi.py`.
 
-**e. Installer les dépendances :** dans l'application, champ *Configuration files* → saisis `requirements.txt` → *Add*, puis *Run Pip Install*. Clique ensuite sur *Restart*.
+⚠️ cPanel range les variables dans `~/moteur.humanatlas.fr/.htaccess`, **clé comprise**. Ce fichier n'est pas lisible depuis le web (erreur 403), mais ne l'affiche jamais et ne le copie jamais ailleurs.
 
-**f. Vérifier :** ouvre `https://moteur.humanatlas.fr` dans ton navigateur. Tu dois lire :
+**e. Installer les dépendances.** o2switch **interdit le compilateur C**, et `pyswisseph` n'existe pas en version précompilée pour Linux. `pip install -r requirements.txt` échoue donc avec « gcc: Permission denied ». La solution :
+
+1. Sur un Mac (ou tout autre ordinateur), fabriquer le module Linux avec le script fourni :
+   ```bash
+   pip install ziglang
+   ssh <identifiant-cpanel>@<serveur>.o2switch.net 'tar czf - -C /opt/alt/python312/include python3.12' > pyinc.tgz
+   mkdir pyinc && tar xzf pyinc.tgz -C pyinc
+   python humandesign/outils/compiler_pyswisseph_linux.py --include pyinc/python3.12 --sortie dist/
+   ```
+2. Envoyer `dist/pyswisseph-2.10.3.2-cp312-cp312-linux_x86_64.whl` sur le serveur (par exemple dans `~/moteur-wheels/`), puis, en SSH :
+   ```bash
+   source ~/virtualenv/moteur-hd/humandesign/3.12/bin/activate
+   pip install ~/moteur-wheels/pyswisseph-2.10.3.2-cp312-cp312-linux_x86_64.whl
+   cd ~/moteur-hd/humandesign && pip install -r requirements.txt
+   python -m pytest -q -p no:cacheprovider     # doit afficher « 111 passed » (ou plus)
+   ```
+3. cPanel → *Setup Python App* → l'application → *Restart*.
+
+**f. Tout forcer en HTTPS :** en tête de `~/moteur.humanatlas.fr/.htaccess`, **au-dessus** des blocs « CLOUDLINUX », ajouter :
+
+```apache
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+```
+
+Ainsi, la clé ne peut jamais circuler en clair par erreur.
+
+**g. Vérifier :** ouvre `https://moteur.humanatlas.fr` dans ton navigateur. Tu dois lire :
 > ok
+
+**Accès SSH :** cPanel → *Autorisation SSH* → ajouter son adresse IP (port 22). Puis, depuis le Mac :
+
+```bash
+ssh <identifiant-cpanel>@<serveur>.o2switch.net
+```
+
+### Mettre le moteur à jour
+
+Après une modification poussée sur GitHub, en SSH :
+
+```bash
+cd ~/moteur-hd && git pull
+source ~/virtualenv/moteur-hd/humandesign/3.12/bin/activate && cd humandesign && python -m pytest -q -p no:cacheprovider
+touch ~/moteur-hd/humandesign/tmp/restart.txt
+```
+
+La dernière ligne redémarre l'application (équivalent du bouton *Restart*).
 
 ---
 

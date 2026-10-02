@@ -20,6 +20,7 @@ Le moteur ne stocke rien : il calcule, répond, puis oublie.
 | `humandesign/ephe/` | fichiers d'éphémérides de la Swiss Ephemeris (années 1800 à 2400) |
 | `humandesign/tests/` | tests automatiques, dont 5 thèmes de référence relevés sur mybodygraph.com |
 | `humandesign/exemples/` | cartes d'exemple des 5 thèmes de référence, dans les deux habillages |
+| `humandesign/outils/` | `compiler_pyswisseph_linux.py` : fabrique pyswisseph pour un serveur Linux sans compilateur (o2switch) |
 | `humandesign/DEPLOIEMENT.md` | guide de mise en ligne pas à pas |
 
 ## Installation
