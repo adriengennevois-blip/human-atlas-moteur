@@ -91,7 +91,14 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
   "active_gates": {"2": ["design"], "5": ["personality"], "…": "…"},
   "summary": "Générateur Manifesteur à autorité émotionnelle (Plexus solaire), profil 1/4 (Investigateur / Opportuniste)",
   "place_resolved": {"name": "Paris, Île-de-France, France métropolitaine, France", "lat": 48.8534951, "lon": 2.3483915, "tz": "Europe/Paris"},
-  "time_warning": null
+  "time_warning": null,
+  "details": {
+    "birth_utc": "2000-01-01T11:00:00+00:00",
+    "cross_gates": "38/39 | 48/21",
+    "personality": {"sun": {"gate": 38, "line": 1, "color": 6, "tone": 2, "base": 4, "fixing": "", "label": "38.1", "longitude": 280.326442}, "…": "…"},
+    "design": {"…": "…"},
+    "…": "…"
+  }
 }
 ```
 

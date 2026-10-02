@@ -107,7 +107,7 @@ def test_full_response_for_reference_1():
     assert code == 200
     assert set(r) == {"type", "type_fr", "authority", "authority_fr", "profile", "profile_label",
                       "cross", "channels", "defined_centers", "definition", "active_gates",
-                      "summary", "place_resolved", "time_warning", "svg"}
+                      "summary", "place_resolved", "time_warning", "details", "svg"}
     assert (r["type"], r["type_fr"]) == ("Generator", "Générateur")
     assert (r["authority"], r["authority_fr"]) == ("Sacral", "Sacrale")
     assert r["profile"] == "5/1" and r["profile_label"] == "5/1 (Hérétique / Investigateur)"
@@ -121,6 +121,22 @@ def test_full_response_for_reference_1():
     assert r["time_warning"] is None
     ElementTree.fromstring(r["svg"])
     assert "Référence 1" in r["svg"]
+
+
+def test_details_match_reference_1():
+    """Le thème complet (13 planètes × 2 côtés) est celui de mybodygraph pour la référence 1."""
+    from .test_reference import PLANET_ORDER, REFERENCE_1 as REF
+    code, r = call({**REFERENCE_1, "include_svg": False})
+    d = r["details"]
+    assert " ".join(d["personality"][p]["label"] for p in PLANET_ORDER) == REF["personality"]
+    assert " ".join(d["design"][p]["label"] for p in PLANET_ORDER) == REF["design"]
+    assert d["cross_gates"] == "SUPPRIME" and d["quarter"] in ("Initiation", "Civilisation", "Dualité", "Mutation")
+    v = d["variables"]
+    assert (v["design_sun"], v["design_node"], v["personality_sun"], v["personality_node"]) == REF["variables"]
+    a = d["personality"]["sun"]
+    assert set(a) == {"gate", "line", "color", "tone", "base", "fixing", "label", "longitude"}
+    assert 1 <= a["color"] <= 6 and 1 <= a["tone"] <= 6 and 1 <= a["base"] <= 5
+    assert d["birth_utc"].startswith("1900-01-01T00:00")
 
 
 def test_without_svg_and_classic_skin():
