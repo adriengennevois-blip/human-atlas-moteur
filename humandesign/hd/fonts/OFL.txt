@@ -1,0 +1,6 @@
+HA Serif — sous-ensemble (chiffres, lettres latines, accents français) de la police
+Lora, Copyright 2011 The Lora Project Authors (https://github.com/cyrealtype/Lora-Cyrillic),
+avec le nom de police réservé « Lora ». Renommée « HA Serif » car modifiée (sous-ensemble),
+comme l'exige la licence.
+
+Distribuée sous la SIL Open Font License, version 1.1 : https://scripts.sil.org/OFL
