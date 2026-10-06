@@ -1,6 +1,13 @@
-HA Serif — sous-ensemble (chiffres, lettres latines, accents français) de la police
-Lora, Copyright 2011 The Lora Project Authors (https://github.com/cyrealtype/Lora-Cyrillic),
-avec le nom de police réservé « Lora ». Renommée « HA Serif » car modifiée (sous-ensemble),
-comme l'exige la licence.
+Polices embarquées dans les cartes de l'habillage « atlas » (sous-ensembles WOFF2 :
+lettres latines, accents français, chiffres et ponctuation utile ; poids figés à partir
+des polices variables). Toutes sont sous SIL Open Font License 1.1, sans nom de police
+réservé : elles gardent donc leur nom d'origine.
 
-Distribuée sous la SIL Open Font License, version 1.1 : https://scripts.sil.org/OFL
+- Instrument Serif (italique) — Copyright 2022 The Instrument Serif Project Authors
+  (https://github.com/Instrument/instrument-serif). Licence : OFL-1.1-InstrumentSerif.txt
+- Jost (400, et 300 italique) — Copyright 2020 The Jost Project Authors
+  (https://github.com/indestructible-type). Licence : OFL-1.1-Jost.txt
+- Space Grotesk (500 et 600) — Copyright 2020 The Space Grotesk Project Authors
+  (https://github.com/floriankarsten/space-grotesk). Licence : OFL-1.1-SpaceGrotesk.txt
+
+Fichiers source : dépôt Google Fonts (https://github.com/google/fonts, dossier ofl/).
