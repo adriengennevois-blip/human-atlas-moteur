@@ -373,8 +373,8 @@ SKINS = {
         "gate_on": "#1b1b1b", "gate_on_text": "#ffffff", "gate_off": "#5c5c5c",
         "text": "#1b1b1b", "muted": "#6b6b6b",
         "bg": None, "atmosphere": False,
-        "font_num": "Inter, 'Helvetica Neue', Arial, sans-serif", "embed_fonts": False,
-        "legend": False,
+        "font_num": "Inter, 'Helvetica Neue', Arial, sans-serif", "font_title": "Inter, 'Helvetica Neue', Arial, sans-serif", "font_text": "Inter, 'Helvetica Neue', Arial, sans-serif",
+        "embed_fonts": False, "legend": False,
     },
     # Habillage Human Atlas : Design en dégradé d'orange, Personnalité en dégradé
     # de violet (couleurs de la marque). Ce n'est pas le code officiel rouge/noir :
@@ -393,13 +393,48 @@ SKINS = {
         "gate_on": None, "gate_on_text": "#ffffff", "gate_off": "#8a8096",
         "text": "#2a2333", "muted": "#5d4f6d",
         "bg": ("#efebf3", "#dcd6e2"), "atmosphere": True,
-        "font_num": "'HA Serif', Lora, Georgia, serif", "embed_fonts": True,
-        "legend": True,
+        # Typographie du site : Instrument Serif italique (prénom, en-têtes), Jost (phrase,
+        # légende), Space Grotesk (portes, valeurs porte.ligne). Embarquées dans le SVG.
+        "font_num": "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
+        "font_title": "'Instrument Serif', Georgia, serif",
+        "font_text": "Jost, 'Helvetica Neue', Arial, sans-serif",
+        "num_weights": (600, 500), "name_gradient": True,
+        "embed_fonts": True, "legend": True,
     },
 }
 
 FONT = "Inter, 'Helvetica Neue', Arial, sans-serif"
 SYMBOLS = "'DejaVu Sans', 'Segoe UI Symbol', 'Apple Symbols', sans-serif"  # glyphes des planètes
+
+
+# Polices de l'habillage « atlas » (sous-ensembles WOFF2, SIL OFL 1.1 : voir fonts/OFL.txt).
+EMBEDDED_FONTS = (
+    ("Instrument Serif", "italic", 400, "instrument-serif-italic.woff2"),
+    ("Jost", "normal", 400, "jost-400.woff2"),
+    ("Jost", "italic", 300, "jost-300-italic.woff2"),
+    ("Space Grotesk", "normal", 500, "space-grotesk-500.woff2"),
+    ("Space Grotesk", "normal", 600, "space-grotesk-600.woff2"),
+)
+
+# Largeur des caractères de la phrase de résumé en Jost 400 (en em), pour réduire la taille
+# de la phrase seulement quand elle ne tiendrait pas dans la page.
+_JOST_ADVANCE = {
+    ' ': 0.3, '(': 0.31, ')': 0.31, ',': 0.308, '-': 0.21, '/': 0.515, '0': 0.6, '1': 0.45, '2': 0.569,
+    '3': 0.546, '4': 0.583, '5': 0.564, '6': 0.576, '7': 0.525, '8': 0.546, '9': 0.576, 'A': 0.66, 'E': 0.55,
+    'G': 0.775, 'H': 0.715, 'I': 0.245, 'L': 0.45, 'M': 0.81, 'O': 0.79, 'P': 0.548, 'R': 0.56, 'S': 0.548,
+    'a': 0.481, 'c': 0.478, 'd': 0.57, 'e': 0.515, 'f': 0.286, 'g': 0.57, 'i': 0.26, 'j': 0.25, 'l': 0.23,
+    'm': 0.78, 'n': 0.525, 'o': 0.546, 'p': 0.57, 'q': 0.57, 'r': 0.343, 's': 0.403, 't': 0.24, 'u': 0.525,
+    'v': 0.44, 'x': 0.42, 'y': 0.44, 'É': 0.55, 'à': 0.485, 'è': 0.515, 'é': 0.515,
+}
+SUMMARY_SIZE, SUMMARY_MAX_WIDTH = 16, PAGE_W - 40
+
+
+def summary_font_size(text: str) -> float:
+    """16 px, ou moins si la phrase dépasserait la largeur utile (une décimale, arrondie vers le bas)."""
+    em = sum(_JOST_ADVANCE.get(ch, max(_JOST_ADVANCE.values())) for ch in text)
+    if em * SUMMARY_SIZE <= SUMMARY_MAX_WIDTH:
+        return SUMMARY_SIZE
+    return math.floor(SUMMARY_MAX_WIDTH / em * 10) / 10
 
 
 @functools.lru_cache(maxsize=1)
@@ -409,10 +444,10 @@ def _font_faces():
     from pathlib import Path
     here = Path(__file__).with_name("fonts")
     css = []
-    for file, style in (("ha-serif.woff", "normal"), ("ha-serif-italic.woff", "italic")):
+    for family, style, weight, file in EMBEDDED_FONTS:
         data = base64.b64encode((here / file).read_bytes()).decode()
-        css.append(f"@font-face{{font-family:'HA Serif';font-style:{style};font-weight:400 700;"
-                   f"src:url(data:font/woff;base64,{data}) format('woff')}}")
+        css.append(f"@font-face{{font-family:'{family}';font-style:{style};font-weight:{weight};"
+                   f"src:url(data:font/woff2;base64,{data}) format('woff2')}}")
     return "<style>" + "".join(css) + "</style>"
 
 
@@ -476,12 +511,13 @@ def _atmosphere(s, uid):
 def _planet_columns(chart, s):
     if chart is None or not getattr(chart, "design", None):
         return ""
-    num = s["font_num"]
+    num, title = s["font_num"], s["font_title"]
+    w = f' font-weight="{s["num_weights"][1]}"' if "num_weights" in s else ""
     out = []
     y0, step = 70 + OFFSET[1], 34
-    out.append(f'<text x="22" y="{y0 - 30}" font-family="{num}" font-style="italic" font-size="14" '
+    out.append(f'<text x="22" y="{y0 - 30}" font-family="{title}" font-style="italic" font-size="14" '
                f'fill="{s["design"]}">Design</text>')
-    out.append(f'<text x="{PAGE_W - 22}" y="{y0 - 30}" font-family="{num}" font-style="italic" '
+    out.append(f'<text x="{PAGE_W - 22}" y="{y0 - 30}" font-family="{title}" font-style="italic" '
                f'font-size="14" text-anchor="end" fill="{s["personality"]}">Personnalité</text>')
     for i, planet in enumerate(D.PLANETS):
         y = y0 + i * step
@@ -489,9 +525,9 @@ def _planet_columns(chart, s):
         glyph = escape(D.PLANET_GLYPHS[planet])
         out.append(f'<text x="22" y="{y}" fill="{s["design"]}">'
                    f'<tspan font-family="{SYMBOLS}" font-size="13">{glyph}</tspan>'
-                   f'<tspan dx="7" font-family="{num}" font-size="15">{d.gate}.{d.line}</tspan></text>')
+                   f'<tspan dx="7" font-family="{num}" font-size="15"{w}>{d.gate}.{d.line}</tspan></text>')
         out.append(f'<text x="{PAGE_W - 22}" y="{y}" text-anchor="end" fill="{s["personality"]}">'
-                   f'<tspan font-family="{num}" font-size="15">{p.gate}.{p.line}</tspan>'
+                   f'<tspan font-family="{num}" font-size="15"{w}>{p.gate}.{p.line}</tspan>'
                    f'<tspan dx="7" font-family="{SYMBOLS}" font-size="13">{glyph}</tspan></text>')
     return "\n  ".join(out)
 
@@ -518,12 +554,19 @@ def _xml_text(text: str) -> str:
 def _caption(chart, name, s, uid):
     if chart is None:
         return ""
-    num, cx = s["font_num"], PAGE_W / 2
+    title, text, cx = s["font_title"], s["font_text"], PAGE_W / 2
     y = 700 + OFFSET[1]
     out = []
     who = name or chart.name or ""
-    if who:
-        out.append(f'<text x="{cx}" y="{y}" font-family="{num}" font-style="italic" font-size="30" '
+    if who and s.get("name_gradient"):  # prénom en dégradé orange → violet (Design → Personnalité)
+        out.append(f'<defs><linearGradient id="{uid}-prenom" x1="0" x2="1">'
+                   f'<stop offset="0" stop-color="{s["design"]}"/><stop offset="1" stop-color="{s["personality"]}"/>'
+                   f'</linearGradient></defs>'
+                   f'<text x="{cx}" y="{y}" font-family="{title}" font-style="italic" font-size="30" '
+                   f'text-anchor="middle" fill="url(#{uid}-prenom)">{_xml_text(who)}</text>')
+        y += 20
+    elif who:
+        out.append(f'<text x="{cx}" y="{y}" font-family="{title}" font-style="italic" font-size="30" '
                    f'font-weight="500" text-anchor="middle" fill="{s["text"]}">{_xml_text(who)}</text>')
         y += 20
     if s.get("legend"):  # filet orange → violet : rappelle les deux faces de la carte
@@ -532,12 +575,14 @@ def _caption(chart, name, s, uid):
                    f'</linearGradient></defs>'
                    f'<rect x="{cx - 28}" y="{y - 6}" width="56" height="2" rx="1" fill="url(#{uid}-filet)"/>')
         y += 20
-    out.append(f'<text x="{cx}" y="{y}" font-family="{num}" font-size="16" text-anchor="middle" '
-               f'fill="{s["text"]}">{escape(summary_sentence(chart))}</text>')
+    sentence = summary_sentence(chart)
+    size = summary_font_size(sentence) if s.get("embed_fonts") else 16
+    out.append(f'<text x="{cx}" y="{y}" font-family="{text}" font-size="{size:g}" text-anchor="middle" '
+               f'fill="{s["text"]}">{escape(sentence)}</text>')
     if s.get("legend"):
         y += 26
-        out.append(f'<text x="{cx}" y="{y}" font-family="{num}" font-style="italic" font-size="11.5" '
-                   f'text-anchor="middle" fill="{s["muted"]}">'
+        out.append(f'<text x="{cx}" y="{y}" font-family="{text}" font-style="italic" font-weight="300" '
+                   f'font-size="11.5" text-anchor="middle" fill="{s["muted"]}">'
                    f'<tspan fill="{s["design"]}">orange</tspan> : Design, ce qui agit en toi sans que tu le voies  ·  '
                    f'<tspan fill="{s["personality"]}">violet</tspan> : Personnalité, ce que tu connais de toi</text>')
     return "\n  ".join(out)
@@ -574,7 +619,9 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
     w = 6.2
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {PAGE_W} {PAGE_H}" '
              f'width="{PAGE_W}" height="{PAGE_H}" font-family="{FONT}" role="img" '
-             f'aria-label="Bodygraph Human Design">']
+             f'aria-label="Bodygraph Human Design"'
+             # Polices embarquées : positions exactes des lettres, sans arrondi à petite taille.
+             + (' text-rendering="geometricPrecision">' if s.get("embed_fonts") else '>')]
     if s.get("embed_fonts"):
         parts.append(_font_faces())
     if s["atmosphere"]:
@@ -624,6 +671,7 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
 
     # 4. Numéros de portes.
     num = s["font_num"]
+    w_on, w_off = s.get("num_weights", (700, 500))
     for g in sorted(GATE_POS):
         x, y = gate_label(g)
         x, y = x + OFFSET[0], y + OFFSET[1]
@@ -639,13 +687,13 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
                 col = s["design"] if sides == {"design"} else s["personality"]
                 parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{col}"/>')
             parts.append(f'<text x="{x:.1f}" y="{y + 2.9:.1f}" font-family="{num}" font-size="8.4" '
-                         f'font-weight="700" text-anchor="middle" fill="{s["gate_on_text"]}">{g}</text>')
+                         f'font-weight="{w_on}" text-anchor="middle" fill="{s["gate_on_text"]}">{g}</text>')
         else:
             on_color = D.GATE_CENTER[g] in defined
             fill = s["text"] if on_color else s["gate_off"]
             op = ' fill-opacity="0.62"' if on_color else ""
             parts.append(f'<text x="{x:.1f}" y="{y + 2.8:.1f}" font-family="{num}" font-size="8" '
-                         f'font-weight="500" text-anchor="middle" fill="{fill}"{op}>{g}</text>')
+                         f'font-weight="{w_off}" text-anchor="middle" fill="{fill}"{op}>{g}</text>')
 
     if show_planets:
         parts.append(_planet_columns(chart, s))
