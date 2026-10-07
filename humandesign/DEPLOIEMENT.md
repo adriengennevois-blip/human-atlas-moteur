@@ -118,7 +118,7 @@ Dans le Terminal du Mac, remplace `TA_CLE` par la clé de l'étape 1 :
 curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer TA_CLE" -H "Content-Type: application/json" -d '{"date":"2000-01-01","time":"12:00","time_precision":"exacte","place":"Paris, France","name":"Exemple","include_svg":false}'
 ```
 
-Tu dois recevoir un JSON qui commence par `{"type": "Manifesting Generator", "type_fr": "Générateur Manifesteur", "authority": "Emotional", …` avec `"profile": "1/4"` (personne fictive née le 1er janvier 2000 à midi, à Paris).
+Tu dois recevoir un JSON qui commence par `{"type": "Manifesting Generator", "type_fr": "M-Générateur", "authority": "Emotional", …` avec `"profile": "1/4"` (personne fictive née le 1er janvier 2000 à midi, à Paris).
 
 Vérifie aussi `https://moteur.humanatlas.fr/source` : il doit afficher l'adresse du dépôt public.
 

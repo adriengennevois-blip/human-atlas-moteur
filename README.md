@@ -79,7 +79,7 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
 ```json
 {
   "type": "Manifesting Generator",
-  "type_fr": "Générateur Manifesteur",
+  "type_fr": "M-Générateur",
   "authority": "Emotional",
   "authority_fr": "Émotionnelle (Plexus solaire)",
   "profile": "1/4",
@@ -89,7 +89,7 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
   "defined_centers": ["throat", "g", "heart", "sacral", "solar_plexus", "spleen", "root"],
   "definition": 2,
   "active_gates": {"2": ["design"], "5": ["personality"], "…": "…"},
-  "summary": "Générateur Manifesteur à autorité émotionnelle (Plexus solaire), profil 1/4 (Investigateur / Opportuniste)",
+  "summary": "M-Générateur à autorité émotionnelle (Plexus solaire), profil 1/4 (Investigateur / Opportuniste)",
   "place_resolved": {"name": "Paris, Île-de-France, France métropolitaine, France", "lat": 48.8534951, "lon": 2.3483915, "tz": "Europe/Paris"},
   "time_warning": null,
   "details": {
