@@ -69,7 +69,7 @@ PLANET_NAMES_FR = {
 
 TYPES_FR = {
     "Generator": ("Générateur", "Répondre", "Satisfaction", "Frustration"),
-    "Manifesting Generator": ("Générateur Manifesteur", "Répondre, puis informer",
+    "Manifesting Generator": ("M-Générateur", "Répondre, puis informer",
                               "Satisfaction", "Frustration / Colère"),
     "Manifestor": ("Manifesteur", "Informer", "Paix", "Colère"),
     "Projector": ("Projecteur", "Attendre l'invitation", "Succès", "Amertume"),
