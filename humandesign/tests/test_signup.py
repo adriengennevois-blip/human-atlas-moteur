@@ -52,3 +52,16 @@ def test_signup_result_with_birth_utc():
 def test_signup_result_requires_enough_input():
     with pytest.raises(Exception):
         signup_result(date="1900-01-01")
+
+
+def test_manifesting_generator_label_is_m_generateur():
+    """Libellé français du type Manifesting Generator : « M-Générateur » (avec l'accent)."""
+    from hd.bodygraph import summary_sentence
+    from hd.chart import build_chart
+    from hd.timeutil import local_to_utc
+
+    d = REFERENCE_3["local"]
+    r = signup_result(date=d.strftime("%Y-%m-%d"), time=d.strftime("%H:%M"), tz=REFERENCE_3["tz"])
+    assert (r["type"], r["type_fr"]) == ("Manifesting Generator", "M-Générateur")
+    c = build_chart(local_to_utc(d, REFERENCE_3["tz"]).utc)
+    assert summary_sentence(c) == "M-Générateur à autorité émotionnelle (Plexus solaire), profil 3/5 (Martyr / Hérétique)"
