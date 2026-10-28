@@ -51,6 +51,16 @@ def positions(jd: float) -> dict:
     return out
 
 
+def lon_speed(jd: float, planet: str) -> tuple[float, float]:
+    """Longitude (°) et vitesse (°/jour) d'un corps du thème, Terre et Nœud Sud compris."""
+    base = {"earth": "sun", "south_node": "north_node"}.get(planet, planet)
+    xx, retflags = swe.calc_ut(jd, SWE_BODIES[base], FLAGS)
+    if not retflags & swe.FLG_SWIEPH:
+        raise RuntimeError("Swiss Ephemeris data files not found; set HD_EPHE_PATH")
+    lon = xx[0] if base == planet else (xx[0] + 180.0) % 360
+    return lon, xx[3]
+
+
 def design_jd(birth_jd: float) -> float:
     """Moment the Sun stood exactly 88° of solar arc before its birth position."""
     target = (_lon(birth_jd, swe.SUN) - DESIGN_SOLAR_ARC) % 360

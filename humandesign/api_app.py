@@ -15,7 +15,8 @@ navigateur : la clé doit rester secrète).
 
   GET  /            → « ok »
   GET  /source      → adresse du code source public (obligation de l'AGPL)
-  POST /v1/chart    → thème calculé (+ SVG du bodygraph)
+  POST /v1/chart    → thème calculé (+ SVG du bodygraph ; « details »: true ajoute
+                      couleur/ton/base, sensibilité à l'heure, variables, précision)
 
 Application WSGI sans framework : tourne telle quelle sur o2switch
 (cPanel → « Setup Python App », via passenger_wsgi.py).
@@ -38,6 +39,7 @@ from datetime import date as Date, datetime
 from zoneinfo import available_timezones
 
 from hd import data as D
+from hd import precision as P
 from hd.bodygraph import SKINS, render_bodygraph, summary_sentence, validate_template
 from hd.chart import build_chart
 from hd.signup import _profile_label
@@ -50,7 +52,7 @@ MIN_KEY_LENGTH = 32
 # Les fichiers d'éphémérides couvrent 1800-2400 ; le Design remonte ~88 jours avant.
 MIN_YEAR, MAX_YEAR = 1801, 2399
 PRECISIONS = ("exacte", "approximative", "inconnue")
-FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "include_svg"}
+FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "include_svg", "details"}
 MAX_NAME = 60
 MAX_PLACE = 200
 
@@ -155,8 +157,12 @@ def parse_request(body) -> dict:
     if not isinstance(include_svg, bool):
         raise _bad("invalid_field", "« include_svg » doit valoir true ou false")
 
+    want_details = body.get("details", False)
+    if not isinstance(want_details, bool):
+        raise _bad("invalid_field", "« details » doit valoir true ou false")
+
     return {"local": datetime(day.year, day.month, day.day, hh, mm), "precision": precision,
-            **loc, "name": name, "skin": skin, "include_svg": include_svg}
+            **loc, "name": name, "skin": skin, "include_svg": include_svg, "details": want_details}
 
 
 # ---------------------------------------------------------------- calcul
@@ -237,7 +243,19 @@ def compute(req: dict) -> dict:
     }
     if req["include_svg"]:
         out["svg"] = render_bodygraph(c, skin=req["skin"], name=req["name"])
+    if req.get("details"):  # option : la réponse sans elle reste identique
+        out.update(premium_details(c, req["precision"]))
     return out
+
+
+def premium_details(c, time_precision: str) -> dict:
+    """Couleur, ton, base et sensibilité à l'heure de chaque activation ; variables ; précision."""
+    stab = P.stable_minutes(c)
+    acts = {side: {p: {**_activation(getattr(c, side)[p]), "stable_minutes": stab[side][p]}
+                   for p in D.PLANETS}
+            for side in ("personality", "design")}
+    return {"activations_details": acts, "variables": P.variables(c),
+            "precision": P.precision(c, time_precision, stab)}
 
 
 # ---------------------------------------------------------------- WSGI

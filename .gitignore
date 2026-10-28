@@ -18,3 +18,6 @@ __pycache__/
 
 # Clé de l'API du moteur, gardée en local pour la copier dans l'app
 .cle-moteur
+
+# Références privées (naissances de personnes réelles) : jamais dans le dépôt public
+humandesign/tests/references_privees.json

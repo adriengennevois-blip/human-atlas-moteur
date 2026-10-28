@@ -104,6 +104,16 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
 
 Le détail des champs d'entrée et de sortie, et des codes d'erreur, se trouve dans [DEPLOIEMENT.md](humandesign/DEPLOIEMENT.md).
 
+**Option `"details": true`** (thème complet, pour les produits premium). Sans elle, la réponse est identique. Avec elle, trois champs s'ajoutent :
+
+- `activations_details` : pour chaque corps, côté `personality` et `design`, la porte, la ligne, la couleur (1 à 6), le ton (1 à 6), la base (1 à 5), et `stable_minutes` : de combien de minutes l'heure de naissance peut avancer (`before`) ou reculer (`after`) avant que chaque valeur change (`null` : plus de 24 h) ;
+- `variables` : les quatre flèches (`determination`, `environment`, `motivation`, `perspective`), avec leur direction (`gauche` ou `droite`) et la couleur, le ton et la base qui les portent ;
+- `precision` : `fiable`, `à confirmer` ou `incertain`, selon que le thème (type, autorité, profil, croix, canaux) ou les variables peuvent changer dans la marge de l'heure déclarée (±5 min pour une heure exacte, ±60 min pour une heure approximative).
+
+Ce calcul prend environ 2 secondes : ne le demander que lorsqu'il sert.
+
+**Vérifications.** Les portes, lignes et flèches sont comparées à des applis de référence (mybodygraph, HumanDesignApp). Les couleurs et tons des variables ont été contrôlés sur un thème. **Les bases ne sont vérifiées par aucune appli de référence** (aucune ne les affiche) : seule leur cohérence interne est testée (les 69 120 bases du cercle se suivent, et basculent avec le ton, la couleur, la ligne et la porte aux frontières).
+
 ## Précision
 
 - **Heure locale vers UTC** : base IANA tzdata historique (`zoneinfo`), qui couvre l'heure d'été, l'heure allemande en France de 1940 à 1944, l'absence d'heure d'été en France de 1946 à 1975 et les règles locales des États-Unis. Une heure qui n'a pas existé (saut d'heure) ou qui a existé deux fois est signalée.
