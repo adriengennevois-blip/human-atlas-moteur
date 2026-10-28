@@ -138,7 +138,24 @@ def variables(chart) -> dict:
     for name, (side, planet) in VARIABLES.items():
         a = getattr(chart, side)[planet]
         out[name] = {"side": side, "planet": planet, "direction": chart.variables[keys[name]],
-                     "gate": a.gate, "line": a.line, "color": a.color, "tone": a.tone, "base": a.base}
+                     "gate": a.gate, "line": a.line, "color": a.color, "tone": a.tone, "base": a.base,
+                     **variable_names(name, a.color, a.tone)}
+    return out
+
+
+def _fr_en(pair):
+    return {"fr": pair[0], "en": pair[1]}
+
+
+def variable_names(name: str, color: int, tone: int) -> dict:
+    """Noms de la couleur, du ton (sens) et, selon la flèche, du sous-libellé gauche/droite
+    ou de la couleur opposée (tables de hd.data)."""
+    out = {"color_name": _fr_en(D.VARIABLE_COLOR_NAMES[name][color]),
+           "tone_name": _fr_en(D.TONE_SENSES[tone])}
+    if name in D.VARIABLE_COLOR_SIDES:
+        out["color_side"] = _fr_en(D.VARIABLE_COLOR_SIDES[name][color][0 if tone <= 3 else 1])
+    else:
+        out["opposite_color_name"] = _fr_en(D.VARIABLE_COLOR_NAMES[name][D.OPPOSITE_COLOR[color]])
     return out
 
 

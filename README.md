@@ -122,7 +122,7 @@ La carte est dans le champ `svg` de la réponse. Une autre valeur que `atlas` ou
 **Option `"details": true`** (thème complet, pour les produits premium). Sans elle, la réponse est identique. Avec elle, trois champs s'ajoutent :
 
 - `activations_details` : pour chaque corps, côté `personality` et `design`, la porte, la ligne, la couleur (1 à 6), le ton (1 à 6), la base (1 à 5), et `stable_minutes` : de combien de minutes l'heure de naissance peut avancer (`before`) ou reculer (`after`) avant que chaque valeur change (`null` : plus de 24 h) ;
-- `variables` : les quatre flèches (`determination`, `environment`, `motivation`, `perspective`), avec leur direction (`gauche` ou `droite`) et la couleur, le ton et la base qui les portent ;
+- `variables` : les quatre flèches (`determination`, `environment`, `motivation`, `perspective`), avec leur direction (`gauche` ou `droite`) et la couleur, le ton et la base qui les portent. Chaque flèche donne aussi ses noms, en français et en anglais (`{"fr": …, "en": …}`) : `color_name` (ex. Lumière / Light), `tone_name` (le sens, ex. Goût / Taste) et, pour Détermination et Environnement, `color_side` (sous-libellé selon le ton, ex. Directe / Direct), pour Motivation et Perspective, `opposite_color_name` (couleur opposée, ex. Possibilité pour Probabilité) ;
 - `precision` : `fiable`, `à confirmer` ou `incertain`, selon que le thème (type, autorité, profil, croix, canaux) ou les variables peuvent changer dans la marge de l'heure déclarée (±5 min pour une heure exacte, ±60 min pour une heure approximative).
 
 Ce calcul prend environ 2 secondes : ne le demander que lorsqu'il sert.
@@ -134,7 +134,7 @@ Ce calcul prend environ 2 secondes : ne le demander que lorsqu'il sert.
 - `dominance` : l'un a le canal complet (`holder`), l'autre aucune de ses portes ;
 - `companionship` (compagnonnage) : tous les deux ont le canal.
 
-La réponse donne aussi le type et la définition de la composite, ses centres définis, les centres et les canaux qui n'existent qu'à deux (`centers_only_together`, `channels_only_together`), et un résumé de chaque personne. La carte utilise l'habillage `composite` (bleu canard pour la première personne, framboise pour la seconde), réservé à cette route.
+La réponse donne aussi le type et la définition de la composite, ses centres définis, les centres et les canaux qui n'existent qu'à deux (`centers_only_together`, `channels_only_together`), et un résumé de chaque personne. La carte utilise l'habillage `composite` (vert sauge foncé pour la première personne, framboise pour la seconde), réservé à cette route.
 
 **Transits (`/v1/transit`).** Corps facultatif : `at` (instant ISO 8601 avec fuseau, ex. `2026-10-28T14:00:00Z` ; par défaut, maintenant) et `chart` (un thème natal au format de `/v1/chart`). La réponse donne, pour les 13 corps, porte, ligne, couleur, ton, base et ▲▼★ (évalués entre les planètes du transit), pas de côté Design, ainsi que les canaux et les centres que le transit définit à lui seul (`channels`, `defined_centers`). Vérifié sur HumanDesignApp (transits du 28 octobre 2026 : 13 corps, symboles, canaux et centres identiques). Avec `chart`, `overlay` liste les canaux que le transit complète avec une porte du thème (`completed_channels`), ceux qu'il forme seul (`transit_channels`) et les centres qu'il définit le temps du transit (`temporarily_defined_centers`).
 

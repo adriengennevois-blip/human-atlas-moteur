@@ -17,7 +17,6 @@ import pytest
 
 from hd.bodygraph import PAGE_H, render_bodygraph
 from hd.chart import build_chart
-from hd.data import GATE_CENTER
 from hd.themes import CLASSIQUE, GDH, THEMES, color_at, contrast
 from hd.timeutil import local_to_utc
 
@@ -127,7 +126,7 @@ def test_gdh_defined_centers_use_the_official_colors(gdh):
 
 @pytest.mark.parametrize("i", range(1, 4))
 def test_gdh_gate_numbers_take_the_most_contrasted_color(i):
-    """Ivoire ou brun : le meilleur contraste avec la couleur réelle dessous."""
+    """Pastilles : ivoire ou brun, le meilleur contraste dessous. Portes inactives : brun."""
     c = _chart(i)
     svg = render_bodygraph(c, theme="gdh", uid="u")
     choices = GDH["text_choices"]
@@ -141,8 +140,7 @@ def test_gdh_gate_numbers_take_the_most_contrasted_color(i):
         if g in c.active_gates:
             continue
         fill = re.search(rf'font-size="8"[^>]*fill="([^"]+)">{g}</text>', svg).group(1)
-        center = GATE_CENTER[g]
-        assert fill == (best([CLASSIQUE["center_defined"][center]]) if center in c.defined_centers else "#3A3326"), g
+        assert fill == "#3A3326", g  # brun, sur un centre défini comme sur un centre ouvert
 
 
 def test_themes_change_nothing_but_colors():

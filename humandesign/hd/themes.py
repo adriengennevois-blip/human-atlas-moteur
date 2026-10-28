@@ -108,9 +108,10 @@ ATLAS = {
 }
 
 # Human Atlas, une couleur par personne à la place de Design / Personnalité
-# (personne A : bleu canard, personne B : framboise). Réservé à /v1/composite.
-COMPOSITE = {**ATLAS, "design": "#13777b", "personality": "#c2416b",
-             "design_text": "#13777b", "personality_text": "#c2416b",
+# (personne A : vert sauge foncé, personne B : framboise), tirées de la palette Atlas.
+# Réservé à /v1/composite.
+COMPOSITE = {**ATLAS, "design": "#4F8A6B", "personality": "#B8476A",
+             "design_text": "#4F8A6B", "personality_text": "#B8476A",
              "legend": False, "name_gradient": False}
 
 # GoDesignHumain : marbre ivoire, or (Design, l'inconscient) et bleu nuit (Personnalité,
@@ -131,10 +132,10 @@ GDH = {
     # Centres définis : couleurs officielles Human Design, celles du thème classique.
     "center_defined": CLASSIQUE["center_defined"],
     "center_glow": False, "center_texture": None,
-    # Numéros sur un centre défini ou une pastille : ivoire ou brun, le plus contrasté
-    # avec la couleur réelle dessous (voir text_on).
+    # Numéros : brun partout, sauf sur les pastilles, où l'ivoire ou le brun est choisi
+    # selon le meilleur contraste avec la couleur réelle dessous (voir text_on).
     "gate_on": None, "gate_text_on": "auto",
-    "gate_text": "#3A3326", "gate_text_defined": "auto", "gate_text_defined_opacity": None,
+    "gate_text": "#3A3326", "gate_text_defined": "#3A3326", "gate_text_defined_opacity": None,
     "text_choices": ("#FBF8F1", "#3A3326"),
     "text": "#3A3326", "muted": "#6E6452",
     "background": {"kind": "marble", "color": "#F6F1E7", "texture": GDH_MARBLE},
