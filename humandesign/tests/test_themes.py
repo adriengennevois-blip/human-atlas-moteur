@@ -15,9 +15,10 @@ from xml.etree import ElementTree
 
 import pytest
 
-from hd.bodygraph import PAGE_H, render_bodygraph
+from hd.bodygraph import render_bodygraph
 from hd.chart import build_chart
-from hd.themes import CLASSIQUE, GDH, THEMES, color_at, contrast
+from hd.data import GATE_CENTER
+from hd.themes import CLASSIQUE, GDH, THEMES, contrast
 from hd.timeutil import local_to_utc
 
 from .test_api import KEY, call
@@ -124,23 +125,44 @@ def test_gdh_defined_centers_use_the_official_colors(gdh):
     assert re.search(r'id="gdh-hdtest0001-center-head" d="[^"]+" fill="#FBF8F1" stroke="#C9A45C"', gdh)  # ouvert
 
 
+HALO = 'stroke="#1A1408" stroke-opacity="0.6" stroke-width="1.5" stroke-linejoin="round" paint-order="stroke"'
+
+
 @pytest.mark.parametrize("i", range(1, 4))
-def test_gdh_gate_numbers_take_the_most_contrasted_color(i):
-    """Pastilles : ivoire ou brun, le meilleur contraste dessous. Portes inactives : brun."""
+def test_gdh_gate_pastilles_and_numbers(i):
     c = _chart(i)
     svg = render_bodygraph(c, theme="gdh", uid="u")
-    choices = GDH["text_choices"]
-    best = lambda under: max(choices, key=lambda x: min(contrast(x, u) for u in under))
-    for g, sides in c.active_gates.items():  # pastilles
-        m = re.search(rf'<text x="[\d.]+" y="([\d.]+)"[^>]*font-size="8.4"[^>]*fill="([^"]+)">{g}</text>', svg)
-        y = float(m.group(1)) - 2.9
-        under = [color_at(GDH[s], y, PAGE_H) for s in sides]
-        assert m.group(2) == best(under), g
+    flat = {"design": "#7A5C24", "personality": "#2B3550"}
+    for g, sides in c.active_gates.items():  # pastilles : aplats, cerclage ivoire, numéro ivoire
+        text = re.search(rf'<text [^>]*font-size="8.4"[^>]*>{g}</text>', svg).group(0)
+        assert 'fill="#FBF8F1"' in text and (HALO in text) == (len(sides) == 2), g
+        x, y = re.search(r'x="([\d.]+)" y="([\d.]+)"', text).groups()
+        cy = f"{float(y) - 2.9:.1f}"
+        assert f'<circle cx="{x}" cy="{cy}" r="6.8" fill="none" stroke="#FBF8F1" stroke-width="1.5"/>' in svg, g
+        if len(sides) == 1:
+            assert f'<circle cx="{x}" cy="{cy}" r="6.8" fill="{flat[sides[0]]}"/>' in svg, g
+        else:
+            assert all(re.search(rf'<path d="M{x},[^"]+Z" fill="{flat[s]}"/>', svg) for s in sides), g
+    expected = {"head": ("#3A3326", False), "g": ("#3A3326", False), "heart": ("#FBF8F1", False),
+                "sacral": ("#FBF8F1", False)}
     for g in range(1, 65):  # portes inactives
         if g in c.active_gates:
             continue
-        fill = re.search(rf'font-size="8"[^>]*fill="([^"]+)">{g}</text>', svg).group(1)
-        assert fill == "#3A3326", g  # brun, sur un centre défini comme sur un centre ouvert
+        text = re.search(rf'<text [^>]*font-size="8"[^>]*>{g}</text>', svg).group(0)
+        center = GATE_CENTER[g]
+        if center not in c.defined_centers:
+            color, halo = "#3A3326", False
+        else:
+            color, halo = expected.get(center, ("#FBF8F1", True))
+        assert f'fill="{color}"' in text and (HALO in text) == halo, (g, center)
+
+
+def test_gdh_contrasts():
+    """Contrastes WCAG des numéros ivoire sur les aplats (le contour sombre s'y ajoute)."""
+    ivory = "#FBF8F1"
+    assert contrast(ivory, "#7A5C24") >= 4.5 and contrast(ivory, "#2B3550") >= 4.5
+    assert contrast("#3A3326", CLASSIQUE["center_defined"]["head"]) >= 4.5
+    assert contrast(ivory, CLASSIQUE["center_defined"]["heart"]) >= 4.5
 
 
 def test_themes_change_nothing_but_colors():

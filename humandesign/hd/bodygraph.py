@@ -36,7 +36,7 @@ import secrets
 from html import escape
 
 from . import data as D
-from .themes import THEMES, Gradient, Marble, color_at, text_on
+from .themes import THEMES, Gradient, Marble
 
 # --------------------------------------------------------------------------- gabarit
 
@@ -605,6 +605,15 @@ def _caption(chart, name, s, uid):
     return "\n  ".join(out)
 
 
+def _halo(s) -> str:
+    """Fin contour sombre sous le texte (dessiné avant le remplissage), si le thème en a un."""
+    h = s.get("text_halo")
+    if not h:
+        return ""
+    return (f' stroke="{h["color"]}" stroke-opacity="{h["opacity"]}" stroke-width="{h["width"]}" '
+            f'stroke-linejoin="round" paint-order="stroke"')
+
+
 def new_uid() -> str:
     """Préfixe des identifiants internes d'une carte (commence par une lettre, comme l'exige XML)."""
     return "hd" + secrets.token_hex(4)
@@ -704,30 +713,33 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
         if g in active:
             r = 6.8
             sides = active[g]
-            text_fill = s["gate_text_on"]
-            if text_fill == "auto":  # couleur réelle de la pastille à cette hauteur
-                under = [color_at(s[side], y, PAGE_H) for side in ("design", "personality") if side in sides]
-                text_fill = text_on(under, s["text_choices"])
+            flat = s.get("gate_pastille")  # aplats propres aux pastilles, sinon les couleurs des canaux
+            d_fill, p_fill = (flat["design"], flat["personality"]) if flat else (design, personality)
             if s["gate_on"]:  # une seule couleur de pastille (classique)
                 parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{s["gate_on"]}"/>')
             elif sides == {"design", "personality"}:  # moitié Design, moitié Personnalité
-                parts.append(f'<path d="M{x:.1f},{y - r:.1f} A{r},{r} 0 0 0 {x:.1f},{y + r:.1f} Z" fill="{design}"/>')
-                parts.append(f'<path d="M{x:.1f},{y - r:.1f} A{r},{r} 0 0 1 {x:.1f},{y + r:.1f} Z" fill="{personality}"/>')
+                parts.append(f'<path d="M{x:.1f},{y - r:.1f} A{r},{r} 0 0 0 {x:.1f},{y + r:.1f} Z" fill="{d_fill}"/>')
+                parts.append(f'<path d="M{x:.1f},{y - r:.1f} A{r},{r} 0 0 1 {x:.1f},{y + r:.1f} Z" fill="{p_fill}"/>')
             else:
-                col = design if sides == {"design"} else personality
+                col = d_fill if sides == {"design"} else p_fill
                 parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{col}"/>')
+            if s.get("gate_ring"):
+                ring, rw = s["gate_ring"]
+                parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="none" stroke="{ring}" stroke-width="{rw}"/>')
+            halo = _halo(s) if sides == {"design", "personality"} else ""
             parts.append(f'<text x="{x:.1f}" y="{y + 2.9:.1f}" font-family="{num}" font-size="8.4" '
-                         f'font-weight="{w_on}" text-anchor="middle" fill="{text_fill}">{g}</text>')
+                         f'font-weight="{w_on}" text-anchor="middle" fill="{s["gate_text_on"]}"{halo}>{g}</text>')
         else:
-            on_color = D.GATE_CENTER[g] in defined
+            center = D.GATE_CENTER[g]
+            on_color = center in defined
             fill = s["gate_text_defined"] if on_color else s["gate_text"]
-            if fill == "auto":
-                under = fills[D.GATE_CENTER[g]] if isinstance(fills, dict) else fills
-                fill = text_on([under], s["text_choices"])
+            if isinstance(fill, dict):  # une couleur par centre défini
+                fill = fill[center]
+            halo = _halo(s) if on_color and center in s.get("gate_text_halo_centers", ()) else ""
             opacity = s["gate_text_defined_opacity"] if on_color else None
             op = f' fill-opacity="{opacity}"' if opacity is not None else ""
             parts.append(f'<text x="{x:.1f}" y="{y + 2.8:.1f}" font-family="{num}" font-size="8" '
-                         f'font-weight="{w_off}" text-anchor="middle" fill="{fill}"{op}>{g}</text>')
+                         f'font-weight="{w_off}" text-anchor="middle" fill="{fill}"{op}{halo}>{g}</text>')
 
     if show_planets:
         parts.append(_planet_columns(chart, s))
