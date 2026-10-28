@@ -72,6 +72,7 @@ Pour la mise en ligne, voir [humandesign/DEPLOIEMENT.md](humandesign/DEPLOIEMENT
 | `GET /v1/transits/day?date=AAAA-MM-JJ&tz=Europe/Paris` | heure de chaque changement de porte et de ligne de la journée, à la minute. Exige la même clé |
 | `POST /v1/return` | retours d'une année : solaire, de Saturne, de Chiron, opposition d'Uranus, avec le thème de chaque passage. Exige la même clé |
 | `POST /v1/group` | groupe de 3 à 5 personnes : canaux et centres du groupe, qui apporte quoi, connexions deux à deux. Exige la même clé |
+| `POST /v1/dream` | thème de rêve (Dream Rave) : réservé, répond `501` (`pending_specification`) en attendant sa règle. Exige la même clé |
 
 **Exemple d'appel** (personne fictive) :
 

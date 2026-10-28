@@ -18,6 +18,7 @@ navigateur : la clé doit rester secrète).
   POST /v1/transit  → transits d'un instant (+ superposition avec un thème natal)
   GET  /v1/transits/day?date=AAAA-MM-JJ&tz=Europe/Paris → changements de porte et de ligne du jour
   POST /v1/return   → retours (solaire, Saturne, Chiron, opposition d'Uranus) d'une année
+  POST /v1/dream    → thème de rêve : 501, en attente de spécification
   POST /v1/group    → groupe de 3 à 5 personnes (qui apporte quoi, paires ; Penta en attente)
   POST /v1/composite → composite de deux personnes (connexions canal par canal, + SVG)
   POST /v1/chart    → thème calculé (+ SVG du bodygraph ; « details »: true ajoute
@@ -564,6 +565,16 @@ def application(environ, start_response):
         except Exception as e:
             log.error("erreur interne : %s", e.__class__.__name__)
             return _error(start_response, ApiError("500 Internal Server Error", "internal_error", "erreur interne du moteur"))
+
+    if path == "/v1/dream":
+        # Lot 6 : thème de rêve (Dream Rave). Route réservée : aucun calcul tant que la règle
+        # (activations et centres retenus pendant le sommeil) n'a pas été fournie.
+        if method != "POST":
+            return _error(start_response, ApiError("405 Method Not Allowed", "method_not_allowed", "POST uniquement"))
+        if not _authorized(environ):
+            return _error(start_response, ApiError("401 Unauthorized", "unauthorized", "clé d'API absente ou invalide"))
+        return _error(start_response, ApiError("501 Not Implemented", "pending_specification",
+                                               "Thème de rêve (Dream Rave) : en attente de spécification."))
 
     routes = {"/v1/chart": (parse_request, compute), "/v1/composite": (parse_composite, compute_composite),
               "/v1/transit": (parse_transit, compute_transit), "/v1/return": (parse_return, compute_return),
