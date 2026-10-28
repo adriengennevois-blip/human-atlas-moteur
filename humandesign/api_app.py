@@ -15,6 +15,8 @@ navigateur : la clé doit rester secrète).
 
   GET  /            → « ok »
   GET  /source      → adresse du code source public (obligation de l'AGPL)
+  POST /v1/transit  → transits d'un instant (+ superposition avec un thème natal)
+  GET  /v1/transits/day?date=AAAA-MM-JJ&tz=Europe/Paris → changements de porte et de ligne du jour
   POST /v1/composite → composite de deux personnes (connexions canal par canal, + SVG)
   POST /v1/chart    → thème calculé (+ SVG du bodygraph ; « details »: true ajoute
                       couleur/ton/base, sensibilité à l'heure, variables, précision)
@@ -24,6 +26,8 @@ Application WSGI sans framework : tourne telle quelle sur o2switch
 
 Réglages (variables d'environnement, à saisir dans cPanel) :
   ENGINE_API_KEY   clé partagée avec l'app (au moins 32 caractères)
+  TRANSITS_API_KEY facultative : clé qui n'ouvre que la vue du jour des transits
+                   (GET /v1/transits/day), sans accès aux calculs de naissance
   SOURCE_URL       adresse du dépôt public du moteur, renvoyée par GET /source
 
 Données personnelles : rien n'est écrit sur disque ni dans les journaux.
@@ -36,7 +40,8 @@ import logging
 import math
 import os
 import re
-from datetime import date as Date, datetime
+from datetime import date as Date, datetime, timezone
+from urllib.parse import parse_qs
 from zoneinfo import available_timezones
 
 from hd import data as D
@@ -44,6 +49,7 @@ from hd import precision as P
 from hd.bodygraph import SKINS, render_bodygraph, summary_sentence, validate_template
 from hd.chart import build_chart
 from hd.composite import composite, render_composite
+from hd.transit import day_changes, transit
 from hd.signup import _profile_label
 from hd.timeutil import GeocodingUnavailable, geocode, local_to_utc, timezone_at
 
@@ -308,6 +314,74 @@ def compute_composite(req: dict) -> dict:
     return out
 
 
+TRANSIT_FIELDS = {"at", "chart"}
+
+
+def _instant(value) -> datetime:
+    """Instant ISO 8601 avec fuseau (« 2026-10-28T14:00:00Z » ou « …+01:00 »)."""
+    if not isinstance(value, str) or len(value) > 40:
+        raise _bad("invalid_field", "« at » doit être une date-heure ISO 8601 avec fuseau, ex. 2026-10-28T14:00:00Z")
+    try:
+        when = datetime.fromisoformat(value.strip())
+    except ValueError:
+        raise _bad("invalid_field", "« at » doit être une date-heure ISO 8601 avec fuseau, ex. 2026-10-28T14:00:00Z") from None
+    if when.tzinfo is None:
+        raise _bad("invalid_field", "« at » doit préciser son fuseau (Z ou +01:00)")
+    if not MIN_YEAR <= when.year <= MAX_YEAR:
+        raise _bad("invalid_field", f"« at » doit être entre {MIN_YEAR} et {MAX_YEAR}")
+    return when.astimezone(timezone.utc)
+
+
+def parse_transit(body) -> dict:
+    if not isinstance(body, dict):
+        raise _bad("invalid_json", "le corps doit être un objet JSON")
+    unknown = set(body) - TRANSIT_FIELDS
+    if unknown:
+        raise _bad("unknown_field", f"champ(s) inconnu(s) : {', '.join(sorted(unknown))}")
+    when = _instant(body["at"]) if body.get("at") is not None else datetime.now(timezone.utc)
+    person = body.get("chart")
+    if person is not None and isinstance(person, dict) and set(person) & {"include_svg", "skin", "details"}:
+        raise _bad("unknown_field", "« chart » : « include_svg », « skin » et « details » ne s'appliquent pas ici")
+    try:
+        natal = parse_request(person) if person is not None else None
+    except ApiError as e:
+        raise ApiError(e.status, e.code, f"thème natal : {e.message}") from None
+    return {"at": when, "chart": natal}
+
+
+def compute_transit(req: dict) -> dict:
+    natal = None
+    out_natal = None
+    if req["chart"] is not None:
+        natal, place, warning = chart_for(req["chart"])
+        out_natal = {"type": natal.type, "profile": natal.profile, "defined_centers": natal.defined_centers,
+                     "channels": [f"{a}-{b}" for a, b in natal.channels],
+                     "place_resolved": place, "time_warning": warning}
+    out = transit(req["at"], natal)
+    if out_natal is not None:
+        out["natal"] = out_natal
+    return out
+
+
+def parse_day(query: str) -> dict:
+    q = parse_qs(query or "", max_num_fields=4)
+    unknown = set(q) - {"date", "tz"}
+    if unknown:
+        raise _bad("unknown_field", f"paramètre(s) inconnu(s) : {', '.join(sorted(unknown))}")
+    day_s, tz = (q.get("date") or [None])[0], (q.get("tz") or ["Europe/Paris"])[0]
+    if not day_s or not _DATE_RE.fullmatch(day_s):
+        raise _bad("invalid_field", "« date » doit être au format AAAA-MM-JJ")
+    try:
+        day = Date.fromisoformat(day_s)
+    except ValueError:
+        raise _bad("invalid_field", "« date » n'existe pas dans le calendrier") from None
+    if not MIN_YEAR <= day.year <= MAX_YEAR:
+        raise _bad("invalid_field", f"« date » doit être entre {MIN_YEAR} et {MAX_YEAR}")
+    if tz not in _TIMEZONES:
+        raise _bad("invalid_field", "« tz » n'est pas un fuseau IANA connu (ex. Europe/Paris)")
+    return {"day": day, "tz": tz}
+
+
 # ---------------------------------------------------------------- WSGI
 
 def _json(start_response, status: str, payload: dict):
@@ -322,15 +396,19 @@ def _error(start_response, e: ApiError):
     return _json(start_response, e.status, {"error": {"code": e.code, "message": e.message}})
 
 
-def _authorized(environ) -> bool:
-    key = os.environ.get("ENGINE_API_KEY", "")
-    if len(key) < MIN_KEY_LENGTH:
-        return False  # clé absente ou trop courte : tout refuser
+def _authorized(environ, *key_names: str) -> bool:
+    """Vrai si l'en-tête porte l'une des clés nommées (ENGINE_API_KEY par défaut).
+    Une clé absente ou trop courte n'ouvre jamais rien."""
     header = environ.get("HTTP_AUTHORIZATION", "")
     scheme, _, token = header.partition(" ")
     if scheme.lower() != "bearer":
         token = ""
-    return hmac.compare_digest(token.strip().encode(), key.encode())
+    ok = False
+    for name in key_names or ("ENGINE_API_KEY",):
+        key = os.environ.get(name, "")
+        if len(key) >= MIN_KEY_LENGTH:  # chaque clé comparée, en temps constant
+            ok |= hmac.compare_digest(token.strip().encode(), key.encode())
+    return ok
 
 
 def _read_body(environ) -> bytes:
@@ -369,7 +447,23 @@ def application(environ, start_response):
                                   ("Content-Length", str(len(body)))])
         return [body]
 
-    routes = {"/v1/chart": (parse_request, compute), "/v1/composite": (parse_composite, compute_composite)}
+    if path == "/v1/transits/day":
+        if method not in ("GET", "HEAD"):
+            return _error(start_response, ApiError("405 Method Not Allowed", "method_not_allowed", "GET uniquement"))
+        # Pas de donnée personnelle : une clé dédiée suffit (option : à donner à d'autres sites).
+        if not _authorized(environ, "ENGINE_API_KEY", "TRANSITS_API_KEY"):
+            return _error(start_response, ApiError("401 Unauthorized", "unauthorized", "clé d'API absente ou invalide"))
+        try:
+            req = parse_day(environ.get("QUERY_STRING", ""))
+            return _json(start_response, "200 OK", day_changes(req["day"], req["tz"]))
+        except ApiError as e:
+            return _error(start_response, e)
+        except Exception as e:
+            log.error("erreur interne : %s", e.__class__.__name__)
+            return _error(start_response, ApiError("500 Internal Server Error", "internal_error", "erreur interne du moteur"))
+
+    routes = {"/v1/chart": (parse_request, compute), "/v1/composite": (parse_composite, compute_composite),
+              "/v1/transit": (parse_transit, compute_transit)}
     if path not in routes:
         return _error(start_response, ApiError("404 Not Found", "not_found", "adresse inconnue"))
     parse, run = routes[path]

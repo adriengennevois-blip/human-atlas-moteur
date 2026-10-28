@@ -52,6 +52,7 @@ Variables d'environnement, dans la même page (*Add Variable*) :
 |---|---|
 | `ENGINE_API_KEY` | la clé de l'étape 1 |
 | `SOURCE_URL` | `https://github.com/adriengennevois-blip/human-atlas-moteur` |
+| `TRANSITS_API_KEY` | *facultatif* : une autre clé (générée comme à l'étape 1), qui n'ouvre que la vue du jour des transits |
 
 `SOURCE_URL` sert à respecter la licence AGPL : le moteur doit indiquer à ceux qui l'utilisent où trouver son code source. Il la renvoie sur `https://moteur.humanatlas.fr/source`. Sans elle, cette adresse répond `503`.
 
