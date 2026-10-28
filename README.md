@@ -5,7 +5,7 @@ Ce moteur calcule une carte Human Design (un « bodygraph ») à partir d'une da
 Il fournit :
 - les activations Personnalité et Design des 13 corps : porte.ligne, avec ▲ exaltation, ▼ détriment et ★ juxtaposition, plus couleur, ton et base ;
 - les canaux, les centres définis, le type, la stratégie, l'autorité, le profil, la définition, la croix d'incarnation et les flèches des variables ;
-- un bodygraph en SVG, en deux habillages : `atlas` (couleurs Human Atlas) et `classique` (code officiel rouge et noir) ;
+- un bodygraph en SVG, en deux thèmes de marque : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : marbre, or et bleu nuit), plus l'habillage `classique` (code officiel rouge et noir) ;
 - une petite API web, que l'application Human Atlas appelle pour afficher la carte de chaque personne.
 
 Le moteur ne stocke rien : il calcule, répond, puis oublie.
@@ -14,7 +14,8 @@ Le moteur ne stocke rien : il calcule, répond, puis oublie.
 
 | Chemin | Rôle |
 |---|---|
-| `humandesign/hd/` | le moteur : calcul (`chart.py`, `ephemeris.py`, `data.py`, `fixing.py`), heures et lieux (`timeutil.py`), résumé (`signup.py`), dessin de la carte (`bodygraph.py`) |
+| `humandesign/hd/` | le moteur : calcul (`chart.py`, `ephemeris.py`, `data.py`, `fixing.py`), heures et lieux (`timeutil.py`), résumé (`signup.py`), dessin de la carte (`bodygraph.py`), toutes ses couleurs (`themes.py`) |
+| `humandesign/exemples/` | cartes d'exemple (personne fictive), dont `atlas.svg` et `gdh.svg` : la même naissance dans les deux thèmes |
 | `humandesign/api_app.py` | l'API web (WSGI, sans framework) |
 | `humandesign/passenger_wsgi.py` | point d'entrée pour l'hébergement (Passenger, o2switch) |
 | `humandesign/ephe/` | fichiers d'éphémérides de la Swiss Ephemeris (années 1800 à 2400) |
@@ -109,6 +110,14 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
 ```
 
 Le détail des champs d'entrée et de sortie, et des codes d'erreur, se trouve dans [DEPLOIEMENT.md](humandesign/DEPLOIEMENT.md).
+
+**Thème de la carte (`"theme"`).** La carte SVG existe en deux thèmes de marque, qui ne changent que l'apparence (jamais le calcul) : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : fond marbre ivoire, centres définis en or, Design en or bronze, Personnalité en bleu nuit). Pour GoDesignHumain :
+
+```bash
+curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer $ENGINE_API_KEY" -H "Content-Type: application/json" -d '{"date":"2000-01-01","time":"12:00","time_precision":"exacte","place":"Paris, France","name":"Exemple","theme":"gdh"}'
+```
+
+La carte est dans le champ `svg` de la réponse. Une autre valeur que `atlas` ou `gdh` répond `422` (`invalid_theme`), de même que `theme` donné avec `skin` (n'en donner qu'un). Les identifiants internes de la carte gdh commencent par `gdh-` : plusieurs cartes, des deux thèmes, peuvent cohabiter dans une même page. Les couleurs des thèmes sont toutes dans `humandesign/hd/themes.py`.
 
 **Option `"details": true`** (thème complet, pour les produits premium). Sans elle, la réponse est identique. Avec elle, trois champs s'ajoutent :
 

@@ -50,6 +50,7 @@ from zoneinfo import available_timezones
 from hd import data as D
 from hd import precision as P
 from hd.bodygraph import SKINS, render_bodygraph, summary_sentence, validate_template
+from hd.themes import PUBLIC_THEMES
 from hd.chart import build_chart
 from hd.composite import composite, render_composite
 from hd.content_keys import chart_keys
@@ -66,7 +67,7 @@ MIN_KEY_LENGTH = 32
 # Les fichiers d'éphémérides couvrent 1800-2400 ; le Design remonte ~88 jours avant.
 MIN_YEAR, MAX_YEAR = 1801, 2399
 PRECISIONS = ("exacte", "approximative", "inconnue")
-FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "include_svg", "details", "content_keys"}
+FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "theme", "include_svg", "details", "content_keys"}
 MAX_NAME = 60
 MAX_PLACE = 200
 
@@ -166,6 +167,14 @@ def parse_request(body) -> dict:
     skin = body.get("skin", "atlas")
     if skin not in SKINS:
         raise _bad("invalid_field", f"« skin » doit valoir {' ou '.join(SKINS)}")
+    if "theme" in body:  # thème de marque : atlas (Human Atlas) ou gdh (GoDesignHumain)
+        if body["theme"] not in PUBLIC_THEMES:
+            raise ApiError("422 Unprocessable Entity", "invalid_theme",
+                           f"« theme » doit valoir {' ou '.join(PUBLIC_THEMES)}")
+        if "skin" in body:
+            raise ApiError("422 Unprocessable Entity", "invalid_theme",
+                           "« theme » et « skin » ne se combinent pas : n'en donner qu'un")
+        skin = body["theme"]
 
     include_svg = body.get("include_svg", True)
     if not isinstance(include_svg, bool):
@@ -297,7 +306,7 @@ def parse_composite(body) -> dict:
         raise _bad("invalid_field", "« people » doit contenir exactement 2 personnes")
     parsed = []
     for i, person in enumerate(people, 1):
-        if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details", "content_keys"}:
+        if isinstance(person, dict) and set(person) & {"include_svg", "skin", "theme", "details", "content_keys"}:
             raise _bad("unknown_field", f"personne {i} : « include_svg », « skin » et « details » se règlent pour toute la composite")
         try:
             parsed.append(parse_request(person))
@@ -334,7 +343,7 @@ def compute_group(req: dict) -> dict:
 
 
 def _parse_person(person, i: int) -> dict:
-    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details", "content_keys"}:
+    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "theme", "details", "content_keys"}:
         raise _bad("unknown_field", f"personne {i} : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         return parse_request(person)
@@ -387,7 +396,7 @@ def parse_transit(body) -> dict:
         raise _bad("unknown_field", f"champ(s) inconnu(s) : {', '.join(sorted(unknown))}")
     when = _instant(body["at"]) if body.get("at") is not None else datetime.now(timezone.utc)
     person = body.get("chart")
-    if person is not None and isinstance(person, dict) and set(person) & {"include_svg", "skin", "details", "content_keys"}:
+    if person is not None and isinstance(person, dict) and set(person) & {"include_svg", "skin", "theme", "details", "content_keys"}:
         raise _bad("unknown_field", "« chart » : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         natal = parse_request(person) if person is not None else None
@@ -430,7 +439,7 @@ def parse_return(body) -> dict:
     person = body.get("chart")
     if person is None:
         raise _bad("missing_field", "champ « chart » obligatoire (le thème natal)")
-    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details", "content_keys"}:
+    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "theme", "details", "content_keys"}:
         raise _bad("unknown_field", "« chart » : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         natal = parse_request(person)

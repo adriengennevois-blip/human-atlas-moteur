@@ -36,6 +36,7 @@ import secrets
 from html import escape
 
 from . import data as D
+from .themes import THEMES, Gradient, Marble
 
 # --------------------------------------------------------------------------- gabarit
 
@@ -358,58 +359,10 @@ def derive(active_gates):
 
 # --------------------------------------------------------------------------- habillages
 
-SKINS = {
-    # Habillage classique : code officiel, rouge = Design, noir = Personnalité.
-    "classique": {
-        "design": "#c62828", "personality": "#1b1b1b",
-        "channel": "#ffffff", "channel_edge": "#9e9e9e",
-        "open_fill": "#ffffff", "open_edge": "#8d8d8d",
-        "center_edge": "#3a3a3a",
-        "centers": {
-            "head": "#f4d03f", "ajna": "#4caf50", "throat": "#a0754d", "g": "#f4d03f",
-            "heart": "#d32f2f", "sacral": "#d32f2f", "spleen": "#a0754d",
-            "solar_plexus": "#a0754d", "root": "#a0754d",
-        },
-        "gate_on": "#1b1b1b", "gate_on_text": "#ffffff", "gate_off": "#5c5c5c",
-        "text": "#1b1b1b", "muted": "#6b6b6b",
-        "bg": None, "atmosphere": False,
-        "font_num": "Inter, 'Helvetica Neue', Arial, sans-serif", "font_title": "Inter, 'Helvetica Neue', Arial, sans-serif", "font_text": "Inter, 'Helvetica Neue', Arial, sans-serif",
-        "embed_fonts": False, "legend": False,
-    },
-    # Habillage Human Atlas : Design en dégradé d'orange, Personnalité en dégradé
-    # de violet (couleurs de la marque). Ce n'est pas le code officiel rouge/noir :
-    # une légende l'indique sur la carte. L'habillage « classique » le garde.
-    "atlas": {
-        "design": "#e07a1f", "design_soft": "#f6c48b",
-        "personality": "#6b2fa3", "personality_soft": "#c3a3e0",
-        "channel": "#d6cee2", "channel_edge": None,
-        "open_fill": "#fbfaff", "open_edge": "#b9aec8",
-        "center_edge": "#ffffff",
-        "centers": {
-            "head": "#efcd78", "ajna": "#8fb39c", "throat": "#c9a481", "g": "#efcd78",
-            "heart": "#c45b74", "sacral": "#c45b74", "spleen": "#c9a481",
-            "solar_plexus": "#c9a481", "root": "#c9a481",
-        },
-        "gate_on": None, "gate_on_text": "#ffffff", "gate_off": "#8a8096",
-        "text": "#2a2333", "muted": "#5d4f6d",
-        "bg": ("#efebf3", "#dcd6e2"), "atmosphere": True,
-        # Typographie du site : Instrument Serif italique (prénom, en-têtes), Jost (phrase,
-        # légende), Space Grotesk (portes, valeurs porte.ligne). Embarquées dans le SVG.
-        "font_num": "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
-        "font_title": "'Instrument Serif', Georgia, serif",
-        "font_text": "Jost, 'Helvetica Neue', Arial, sans-serif",
-        "num_weights": (600, 500), "name_gradient": True,
-        "embed_fonts": True, "legend": True,
-    },
-}
-
-# Habillages réservés à des cartes particulières (pas proposés pour un thème individuel).
-# « composite » : celui d'Human Atlas, une couleur par personne à la place de Design /
-# Personnalité (personne A : bleu canard, personne B : framboise). Même gabarit.
-EXTRA_SKINS = {
-    "composite": {**SKINS["atlas"], "design": "#13777b", "personality": "#c2416b",
-                  "legend": False, "name_gradient": False},
-}
+# Couleurs : toutes dans hd/themes.py. SKINS : thèmes proposés par « skin » (API, golden
+# files) ; EXTRA_SKINS : thèmes réservés (composite) ou proposés par « theme » (gdh).
+SKINS = {k: THEMES[k] for k in ("classique", "atlas")}
+EXTRA_SKINS = {k: v for k, v in THEMES.items() if k not in SKINS}
 
 FONT = "Inter, 'Helvetica Neue', Arial, sans-serif"
 SYMBOLS = "'DejaVu Sans', 'Segoe UI Symbol', 'Apple Symbols', sans-serif"  # glyphes des planètes
@@ -479,16 +432,72 @@ def _center_path(center):
     return " ".join(out) + " Z"
 
 
-def _atmosphere(s, uid):
+# Profil des veines : fines bandes (un seul pas de la table sur 25) au milieu du bruit.
+_VEINS = (0,) * 8 + (0.5, 0, 0, 0, 1, 0, 0, 0, 0.7) + (0,) * 8
+
+
+class _Paints:
+    """Transforme une couleur du thème en valeur d'attribut SVG. Un Gradient ou un Marble
+    est déclaré une seule fois dans la carte, sous l'identifiant « {uid}-{nom} »."""
+
+    def __init__(self, uid):
+        self.uid, self.defs = uid, {}
+
+    def __call__(self, paint):
+        if isinstance(paint, Gradient):
+            self.defs.setdefault(paint.name, self._gradient(paint))
+            return f"url(#{self.uid}-{paint.name})"
+        return paint
+
+    def filter(self, marble: Marble) -> str:
+        self.defs.setdefault(marble.name, self._marble(marble))
+        return f"url(#{self.uid}-{marble.name})"
+
+    def _gradient(self, g):
+        box = (f'gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{PAGE_H}"' if g.units == "page"
+               else 'x1="0" y1="0" x2="0" y2="1"')
+        stops = "".join(f'<stop offset="{o:g}" stop-color="{c}"/>' for o, c in g.stops)
+        return f'<linearGradient id="{self.uid}-{g.name}" {box}>{stops}</linearGradient>'
+
+    def _marble(self, m):
+        # Bruit fractal → veines : la table ne garde que des bandes étroites du bruit (les
+        # veines), à l'opacité m.opacity au plus ; « in » les limite à la forme filtrée.
+        r, g, b = m.color
+        k = m.opacity
+        table = " ".join(f"{v * k:g}" for v in _VEINS)
+        return (f'<filter id="{self.uid}-{m.name}" x="0" y="0" width="100%" height="100%" '
+                f'color-interpolation-filters="sRGB">'
+                f'<feTurbulence type="fractalNoise" baseFrequency="{m.base_frequency}" '
+                f'numOctaves="{m.octaves}" seed="{m.seed}"/>'
+                f'<feColorMatrix type="matrix" values="0 0 0 0 {r} 0 0 0 0 {g} 0 0 0 0 {b} 1 0 0 0 0"/>'
+                f'<feComponentTransfer><feFuncA type="table" tableValues="{table}"/></feComponentTransfer>'
+                f'<feComposite in2="SourceAlpha" operator="in"/></filter>')
+
+    def block(self):
+        return f'<defs>{"".join(self.defs.values())}</defs>' if self.defs else ""
+
+
+def _background(s, uid, paint):
+    bg = s["background"]
+    if bg["kind"] == "plain":
+        return f'<rect width="{PAGE_W}" height="{PAGE_H}" fill="{bg["color"]}"/>'
+    if bg["kind"] == "marble":
+        return (f'<rect width="{PAGE_W}" height="{PAGE_H}" fill="{bg["color"]}"/>\n'
+                f'  <rect width="{PAGE_W}" height="{PAGE_H}" fill="{bg["color"]}" '
+                f'filter="{paint.filter(bg["texture"])}"/>')
+    return _atmosphere(bg, uid)
+
+
+def _atmosphere(bg, uid):
     ox, oy = OFFSET
     return f"""
   <defs>
     <linearGradient id="{uid}-bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="{s['bg'][0]}"/><stop offset="1" stop-color="{s['bg'][1]}"/>
+      <stop offset="0" stop-color="{bg['top']}"/><stop offset="1" stop-color="{bg['bottom']}"/>
     </linearGradient>
     <radialGradient id="{uid}-halo" cx="0.5" cy="0.42" r="0.5">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0" stop-color="{bg['halo']}" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="{bg['halo']}" stop-opacity="0"/>
     </radialGradient>
     <filter id="{uid}-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
     <filter id="{uid}-glow" x="-60%" y="-60%" width="220%" height="220%">
@@ -498,14 +507,14 @@ def _atmosphere(s, uid):
   </defs>
   <rect width="{PAGE_W}" height="{PAGE_H}" fill="url(#{uid}-bg)"/>
   <ellipse cx="{200 + ox}" cy="{350 + oy}" rx="250" ry="350" fill="url(#{uid}-halo)"/>
-  <g fill="none" stroke="#7b22aa" stroke-opacity="0.16" stroke-width="0.8">
+  <g fill="none" stroke="{bg['orbit']}" stroke-opacity="0.16" stroke-width="0.8">
     <ellipse cx="{200 + ox}" cy="{330 + oy}" rx="262" ry="112" transform="rotate(-16 {200 + ox} {330 + oy})"/>
     <ellipse cx="{200 + ox}" cy="{400 + oy}" rx="290" ry="200" transform="rotate(12 {200 + ox} {400 + oy})"/>
   </g>
-  <circle cx="{PAGE_W - 70}" cy="{548 + oy}" r="6" fill="#7b22aa" fill-opacity="0.5"/>
-  <circle cx="{66}" cy="{560 + oy}" r="4" fill="#cd7a18" fill-opacity="0.7"/>
-  <circle cx="{PAGE_W - 120}" cy="{20}" r="2.5" fill="#cd7a18" fill-opacity="0.6"/>
-  <path filter="url(#{uid}-soft)" fill="#ffffff" fill-opacity="0.55"
+  <circle cx="{PAGE_W - 70}" cy="{548 + oy}" r="6" fill="{bg['dot_violet']}" fill-opacity="0.5"/>
+  <circle cx="{66}" cy="{560 + oy}" r="4" fill="{bg['dot_orange']}" fill-opacity="0.7"/>
+  <circle cx="{PAGE_W - 120}" cy="{20}" r="2.5" fill="{bg['dot_orange']}" fill-opacity="0.6"/>
+  <path filter="url(#{uid}-soft)" fill="{bg['veil']}" fill-opacity="0.55"
         d="M{200 + ox},{0 + oy} C{268 + ox},{0 + oy} {284 + ox},{90 + oy} {272 + ox},{150 + oy}
            C{264 + ox},{188 + oy} {250 + ox},{198 + oy} {248 + ox},{216 + oy}
            C{306 + ox},{232 + oy} {376 + ox},{258 + oy} {394 + ox},{340 + oy}
@@ -524,17 +533,17 @@ def _planet_columns(chart, s):
     out = []
     y0, step = 70 + OFFSET[1], 34
     out.append(f'<text x="22" y="{y0 - 30}" font-family="{title}" font-style="italic" font-size="14" '
-               f'fill="{s["design"]}">Design</text>')
+               f'fill="{s["design_text"]}">Design</text>')
     out.append(f'<text x="{PAGE_W - 22}" y="{y0 - 30}" font-family="{title}" font-style="italic" '
-               f'font-size="14" text-anchor="end" fill="{s["personality"]}">Personnalité</text>')
+               f'font-size="14" text-anchor="end" fill="{s["personality_text"]}">Personnalité</text>')
     for i, planet in enumerate(D.PLANETS):
         y = y0 + i * step
         d, p = chart.design[planet], chart.personality[planet]
         glyph = escape(D.PLANET_GLYPHS[planet])
-        out.append(f'<text x="22" y="{y}" fill="{s["design"]}">'
+        out.append(f'<text x="22" y="{y}" fill="{s["design_text"]}">'
                    f'<tspan font-family="{SYMBOLS}" font-size="13">{glyph}</tspan>'
                    f'<tspan dx="7" font-family="{num}" font-size="15"{w}>{d.gate}.{d.line}</tspan></text>')
-        out.append(f'<text x="{PAGE_W - 22}" y="{y}" text-anchor="end" fill="{s["personality"]}">'
+        out.append(f'<text x="{PAGE_W - 22}" y="{y}" text-anchor="end" fill="{s["personality_text"]}">'
                    f'<tspan font-family="{num}" font-size="15"{w}>{p.gate}.{p.line}</tspan>'
                    f'<tspan dx="7" font-family="{SYMBOLS}" font-size="13">{glyph}</tspan></text>')
     return "\n  ".join(out)
@@ -568,7 +577,7 @@ def _caption(chart, name, s, uid):
     who = name or chart.name or ""
     if who and s.get("name_gradient"):  # prénom en dégradé orange → violet (Design → Personnalité)
         out.append(f'<defs><linearGradient id="{uid}-prenom" x1="0" x2="1">'
-                   f'<stop offset="0" stop-color="{s["design"]}"/><stop offset="1" stop-color="{s["personality"]}"/>'
+                   f'<stop offset="0" stop-color="{s["design_text"]}"/><stop offset="1" stop-color="{s["personality_text"]}"/>'
                    f'</linearGradient></defs>'
                    f'<text x="{cx}" y="{y}" font-family="{title}" font-style="italic" font-size="30" '
                    f'text-anchor="middle" fill="url(#{uid}-prenom)">{_xml_text(who)}</text>')
@@ -579,7 +588,7 @@ def _caption(chart, name, s, uid):
         y += 20
     if s.get("legend"):  # filet orange → violet : rappelle les deux faces de la carte
         out.append(f'<defs><linearGradient id="{uid}-filet" x1="0" x2="1">'
-                   f'<stop offset="0" stop-color="{s["design"]}"/><stop offset="1" stop-color="{s["personality"]}"/>'
+                   f'<stop offset="0" stop-color="{s["design_text"]}"/><stop offset="1" stop-color="{s["personality_text"]}"/>'
                    f'</linearGradient></defs>'
                    f'<rect x="{cx - 28}" y="{y - 6}" width="56" height="2" rx="1" fill="url(#{uid}-filet)"/>')
         y += 20
@@ -591,8 +600,8 @@ def _caption(chart, name, s, uid):
         y += 26
         out.append(f'<text x="{cx}" y="{y}" font-family="{text}" font-style="italic" font-weight="300" '
                    f'font-size="11.5" text-anchor="middle" fill="{s["muted"]}">'
-                   f'<tspan fill="{s["design"]}">orange</tspan> : Design, ce qui agit en toi sans que tu le voies  ·  '
-                   f'<tspan fill="{s["personality"]}">violet</tspan> : Personnalité, ce que tu connais de toi</text>')
+                   f'<tspan fill="{s["design_text"]}">{s["legend_design"]}</tspan> : Design, ce qui agit en toi sans que tu le voies  ·  '
+                   f'<tspan fill="{s["personality_text"]}">{s["legend_personality"]}</tspan> : Personnalité, ce que tu connais de toi</text>')
     return "\n  ".join(out)
 
 
@@ -601,29 +610,36 @@ def new_uid() -> str:
     return "hd" + secrets.token_hex(4)
 
 
-def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
+def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None, name=None,
                      show_planets=True, show_caption=True, uid=None) -> str:
     """Rend le bodygraph en SVG.
 
     chart : objet Chart du moteur (hd.chart.build_chart). Ou bien active_gates :
     {porte: ["design"] | ["personality"] | ["design", "personality"]}.
 
+    theme (ou skin, son ancien nom) : un thème de hd.themes.THEMES. Ne change que l'apparence.
+
     uid : préfixe des identifiants internes (dégradés, filtres, centres). Tiré au
     hasard par défaut, pour que plusieurs cartes puissent cohabiter dans une même
     page HTML sans se voler leurs dégradés. À fixer pour un rendu reproductible.
+    Un thème qui a un id_prefix le place devant (ex. « gdh-hd1a2b3c4d »).
     """
+    s = THEMES[theme or skin]
     uid = uid or new_uid()
+    if s.get("id_prefix"):
+        uid = f"{s['id_prefix']}-{uid}"
     validate_template()
     if chart is not None:
         active_gates = chart.active_gates
     if active_gates is None:
         raise ValueError("fournir chart ou active_gates")
-    s = SKINS[skin] if skin in SKINS else EXTRA_SKINS[skin]
     active, channels, defined = derive(active_gates)
     if chart is not None:  # garde-fou : le dessin doit dire la même chose que le moteur
         assert sorted(_channel_key(*c) for c in channels) == sorted(_channel_key(*c) for c in chart.channels)
         assert defined == set(chart.defined_centers)
 
+    paint = _Paints(uid)
+    design, personality = paint(s["design"]), paint(s["personality"])
     w = 6.2
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {PAGE_W} {PAGE_H}" '
              f'width="{PAGE_W}" height="{PAGE_H}" font-family="{FONT}" role="img" '
@@ -632,10 +648,8 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
              + (' text-rendering="geometricPrecision">' if s.get("embed_fonts") else '>')]
     if s.get("embed_fonts"):
         parts.append(_font_faces())
-    if s["atmosphere"]:
-        parts.append(_atmosphere(s, uid))
-    elif s["bg"] is None:
-        parts.append(f'<rect width="{PAGE_W}" height="{PAGE_H}" fill="#ffffff"/>')
+    defs_at = len(parts)  # dégradés et filtres du thème (rien pour atlas et classique)
+    parts.append(_background(s, uid, paint))
 
     # 1. Canaux : fond (canal ouvert), puis moitiés activées, chacune de la couleur de sa porte.
     halves = {c: channel_halves(*c) for c in D.CHANNELS}
@@ -646,7 +660,7 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
             parts.append(f'<path d="{seg_d(ha)} {seg_d(hb)}" stroke="{s["channel_edge"]}" '
                          f'stroke-width="{w + 2.2}" stroke-linecap="round"/>')
     for ha, hb in halves.values():
-        parts.append(f'<path d="{seg_d(ha)} {seg_d(hb)}" stroke="{s["channel"]}" stroke-width="{w}"/>')
+        parts.append(f'<path d="{seg_d(ha)} {seg_d(hb)}" stroke="{s["channel_inactive"]}" stroke-width="{w}"/>')
     drawn = set()
     for (a, b), (ha, hb) in halves.items():
         for gate, half in ((a, ha), (b, hb)):
@@ -657,25 +671,29 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
             drawn.add((gate, d))
             cls = f'class="gate-{gate}"'
             if sides == {"design"}:
-                parts.append(f'<path {cls} d="{d}" stroke="{s["design"]}" stroke-width="{w}"/>')
+                parts.append(f'<path {cls} d="{d}" stroke="{design}" stroke-width="{w}"/>')
             elif sides == {"personality"}:
-                parts.append(f'<path {cls} d="{d}" stroke="{s["personality"]}" stroke-width="{w}"/>')
-            else:  # les deux : rayé (rouge/noir, ou orange/violet)
-                parts.append(f'<path {cls} d="{d}" stroke="{s["design"]}" stroke-width="{w}"/>')
-                parts.append(f'<path {cls} d="{d}" stroke="{s["personality"]}" stroke-width="{w}" '
-                             f'stroke-dasharray="3.2 3.2"/>')
+                parts.append(f'<path {cls} d="{d}" stroke="{personality}" stroke-width="{w}"/>')
+            else:  # les deux : rayé Design / Personnalité
+                parts.append(f'<path {cls} d="{d}" stroke="{design}" stroke-width="{w}"/>')
+                parts.append(f'<path {cls} d="{d}" stroke="{personality}" stroke-width="{w}" '
+                             f'stroke-dasharray="{s["both_dash"]}"/>')
     parts.append('</g>')
 
     # 3. Centres.
+    fills = s["center_defined"]
     for center in D.CENTERS:
         d = _center_path(center)
         if center in defined:
-            glow = f' filter="url(#{uid}-glow)"' if s["atmosphere"] else ""
-            parts.append(f'<path id="{uid}-center-{center}" d="{d}" fill="{s["centers"][center]}" '
-                         f'stroke="{s["center_edge"]}" stroke-width="1.6"{glow}/>')
+            fill = paint(fills[center] if isinstance(fills, dict) else fills)
+            glow = f' filter="url(#{uid}-glow)"' if s["center_glow"] else ""
+            parts.append(f'<path id="{uid}-center-{center}" d="{d}" fill="{fill}" '
+                         f'stroke="{s["center_stroke"]}" stroke-width="1.6"{glow}/>')
+            if s["center_texture"]:  # veinage par-dessus, limité à la forme du centre
+                parts.append(f'<path d="{d}" fill="{fill}" filter="{paint.filter(s["center_texture"])}"/>')
         else:
-            parts.append(f'<path id="{uid}-center-{center}" d="{d}" fill="{s["open_fill"]}" '
-                         f'stroke="{s["open_edge"]}" stroke-width="1.2"/>')
+            parts.append(f'<path id="{uid}-center-{center}" d="{d}" fill="{s["center_open"]}" '
+                         f'stroke="{s["center_open_stroke"]}" stroke-width="1.2"/>')
 
     # 4. Numéros de portes.
     num = s["font_num"]
@@ -688,18 +706,19 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
             sides = active[g]
             if s["gate_on"]:  # une seule couleur de pastille (classique)
                 parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{s["gate_on"]}"/>')
-            elif sides == {"design", "personality"}:  # moitié orange, moitié violet
-                parts.append(f'<path d="M{x:.1f},{y - r:.1f} A{r},{r} 0 0 0 {x:.1f},{y + r:.1f} Z" fill="{s["design"]}"/>')
-                parts.append(f'<path d="M{x:.1f},{y - r:.1f} A{r},{r} 0 0 1 {x:.1f},{y + r:.1f} Z" fill="{s["personality"]}"/>')
+            elif sides == {"design", "personality"}:  # moitié Design, moitié Personnalité
+                parts.append(f'<path d="M{x:.1f},{y - r:.1f} A{r},{r} 0 0 0 {x:.1f},{y + r:.1f} Z" fill="{design}"/>')
+                parts.append(f'<path d="M{x:.1f},{y - r:.1f} A{r},{r} 0 0 1 {x:.1f},{y + r:.1f} Z" fill="{personality}"/>')
             else:
-                col = s["design"] if sides == {"design"} else s["personality"]
+                col = design if sides == {"design"} else personality
                 parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{col}"/>')
             parts.append(f'<text x="{x:.1f}" y="{y + 2.9:.1f}" font-family="{num}" font-size="8.4" '
-                         f'font-weight="{w_on}" text-anchor="middle" fill="{s["gate_on_text"]}">{g}</text>')
+                         f'font-weight="{w_on}" text-anchor="middle" fill="{s["gate_text_on"]}">{g}</text>')
         else:
             on_color = D.GATE_CENTER[g] in defined
-            fill = s["text"] if on_color else s["gate_off"]
-            op = ' fill-opacity="0.62"' if on_color else ""
+            fill = s["gate_text_defined"] if on_color else s["gate_text"]
+            opacity = s["gate_text_defined_opacity"] if on_color else None
+            op = f' fill-opacity="{opacity}"' if opacity is not None else ""
             parts.append(f'<text x="{x:.1f}" y="{y + 2.8:.1f}" font-family="{num}" font-size="8" '
                          f'font-weight="{w_off}" text-anchor="middle" fill="{fill}"{op}>{g}</text>')
 
@@ -707,5 +726,6 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
         parts.append(_planet_columns(chart, s))
     if show_caption:
         parts.append(_caption(chart, name, s, uid))
+    parts.insert(defs_at, paint.block())
     parts.append('</svg>')
     return "\n  ".join(p for p in parts if p)

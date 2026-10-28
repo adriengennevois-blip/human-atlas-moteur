@@ -147,6 +147,7 @@ Le premier appel après un redémarrage peut prendre une dizaine de secondes. Le
 | lieu (un seul des trois) | `tz` (fuseau IANA, ex. `Europe/Paris`), ou `lat` + `lon`, ou `place` (texte, ex. `Lyon, France`) |
 | `name` | optionnel : le prénom affiché sur la carte (60 caractères maximum) |
 | `skin` | `atlas` (par défaut) ou `classique` |
+| `theme` | thème de marque de la carte : `atlas` (Human Atlas, par défaut) ou `gdh` (GoDesignHumain). Autre valeur, ou donné avec `skin` : `422` (`invalid_theme`) |
 | `include_svg` | `true` (par défaut) ou `false` |
 
 ### Ce que le moteur répond
@@ -155,7 +156,7 @@ Le premier appel après un redémarrage peut prendre une dizaine de secondes. Le
 
 `details` contient le thème complet : `birth_utc`, `design_utc`, `cross_gates`, `quarter`, `variables` (les 4 flèches), et pour `personality` comme pour `design`, chacune des 13 planètes avec `gate`, `line`, `color`, `tone`, `base`, `fixing` (▲ ▼ ★), `label` (ex. `47.6▼`) et `longitude`.
 
-En cas d'erreur : `{"error": {"code": "…", "message": "…"}}` avec le code HTTP correspondant (`400` entrée invalide, `401` clé, `413` corps de plus de 10 Ko, `422` heure inconnue ou lieu introuvable, `503` géocodage indisponible).
+En cas d'erreur : `{"error": {"code": "…", "message": "…"}}` avec le code HTTP correspondant (`400` entrée invalide, `401` clé, `413` corps de plus de 10 Ko, `422` heure inconnue, lieu introuvable ou thème inconnu, `503` géocodage indisponible).
 
 ---
 

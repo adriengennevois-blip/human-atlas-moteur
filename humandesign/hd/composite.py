@@ -17,7 +17,8 @@
 from html import escape
 
 from . import data as D
-from .bodygraph import EXTRA_SKINS, PAGE_W, OFFSET, _xml_text, new_uid, render_bodygraph
+from .bodygraph import PAGE_W, OFFSET, _xml_text, new_uid, render_bodygraph
+from .themes import THEMES
 from .chart import analyse
 
 CONNECTIONS_FR = {"electromagnetic": "électromagnétique", "compromise": "compromis",
@@ -72,7 +73,7 @@ def composite_active_gates(chart_a, chart_b) -> dict:
 def render_composite(chart_a, chart_b, name_a: str = "", name_b: str = "", uid: str | None = None) -> str:
     """Carte SVG de la composite : même gabarit, une couleur par personne."""
     uid = uid or new_uid()
-    s = EXTRA_SKINS["composite"]
+    s = THEMES["composite"]
     svg = render_bodygraph(active_gates=composite_active_gates(chart_a, chart_b), skin="composite",
                            show_planets=False, show_caption=False, uid=uid)
     na, nb = _xml_text(name_a or "Personne 1"), _xml_text(name_b or "Personne 2")
