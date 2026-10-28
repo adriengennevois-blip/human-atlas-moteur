@@ -17,6 +17,7 @@ navigateur : la clé doit rester secrète).
   GET  /source      → adresse du code source public (obligation de l'AGPL)
   POST /v1/transit  → transits d'un instant (+ superposition avec un thème natal)
   GET  /v1/transits/day?date=AAAA-MM-JJ&tz=Europe/Paris → changements de porte et de ligne du jour
+  POST /v1/return   → retours (solaire, Saturne, Chiron, opposition d'Uranus) d'une année
   POST /v1/composite → composite de deux personnes (connexions canal par canal, + SVG)
   POST /v1/chart    → thème calculé (+ SVG du bodygraph ; « details »: true ajoute
                       couleur/ton/base, sensibilité à l'heure, variables, précision)
@@ -49,7 +50,8 @@ from hd import precision as P
 from hd.bodygraph import SKINS, render_bodygraph, summary_sentence, validate_template
 from hd.chart import build_chart
 from hd.composite import composite, render_composite
-from hd.transit import day_changes, transit
+from hd.returns import RETURNS, find_returns, years_with_returns
+from hd.transit import day_changes, overlay, transit
 from hd.signup import _profile_label
 from hd.timeutil import GeocodingUnavailable, geocode, local_to_utc, timezone_at
 
@@ -363,6 +365,70 @@ def compute_transit(req: dict) -> dict:
     return out
 
 
+RETURN_FIELDS = {"chart", "kind", "year"}
+RETURNS_FR = {"solar": "retour solaire", "saturn": "retour de Saturne", "chiron": "retour de Chiron",
+              "uranus_opposition": "opposition d'Uranus"}
+
+
+def parse_return(body) -> dict:
+    if not isinstance(body, dict):
+        raise _bad("invalid_json", "le corps doit être un objet JSON")
+    unknown = set(body) - RETURN_FIELDS
+    if unknown:
+        raise _bad("unknown_field", f"champ(s) inconnu(s) : {', '.join(sorted(unknown))}")
+    kind = body.get("kind")
+    if kind not in RETURNS:
+        raise _bad("invalid_field", f"« kind » doit valoir {', '.join(RETURNS)}")
+    year = body.get("year")
+    if isinstance(year, bool) or not isinstance(year, int) or not MIN_YEAR < year <= MAX_YEAR - 2:
+        raise _bad("invalid_field", f"« year » doit être une année entre {MIN_YEAR + 1} et {MAX_YEAR - 2}")
+    person = body.get("chart")
+    if person is None:
+        raise _bad("missing_field", "champ « chart » obligatoire (le thème natal)")
+    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details"}:
+        raise _bad("unknown_field", "« chart » : « include_svg », « skin » et « details » ne s'appliquent pas ici")
+    try:
+        natal = parse_request(person)
+    except ApiError as e:
+        raise ApiError(e.status, e.code, f"thème natal : {e.message}") from None
+    return {"chart": natal, "kind": kind, "year": year}
+
+
+def chart_payload(c) -> dict:
+    """Le thème, dans les mêmes champs que /v1/chart (sans lieu ni SVG)."""
+    return {
+        "type": c.type, "type_fr": D.TYPES_FR[c.type][0],
+        "authority": c.authority, "authority_fr": D.AUTHORITY_FR[c.authority],
+        "profile": c.profile, "profile_label": _profile_label(c.profile), "cross": c.cross,
+        "channels": [f"{a}-{b}" for a, b in c.channels], "defined_centers": c.defined_centers,
+        "definition": c.definition, "active_gates": {str(g): sides for g, sides in c.active_gates.items()},
+        "summary": summary_sentence(c), "details": details(c),
+    }
+
+
+def compute_return(req: dict) -> dict:
+    natal, place, warning = chart_for(req["chart"])
+    if req["year"] <= natal.birth_utc.year:
+        raise _bad("invalid_field", "« year » doit être postérieure à l'année de naissance")
+    passages = find_returns(natal, req["kind"], req["year"])
+    out = {
+        "kind": req["kind"], "kind_fr": RETURNS_FR[req["kind"]], "year": req["year"],
+        "natal": {"type": natal.type, "profile": natal.profile, "defined_centers": natal.defined_centers,
+                  "channels": [f"{a}-{b}" for a, b in natal.channels],
+                  "place_resolved": place, "time_warning": warning},
+        "passages": [{
+            "utc": p.when_utc.replace(microsecond=0).isoformat(),
+            "retrograde": p.retrograde, "age_years": p.age_years,
+            "chart": chart_payload(p.chart),
+            "overlay": overlay(natal, {f"{side}_{k}": a for side in ("personality", "design")
+                                      for k, a in getattr(p.chart, side).items()}),
+        } for p in passages],
+    }
+    if not passages and req["kind"] != "solar":
+        out["years_with_returns"] = years_with_returns(natal, req["kind"], MAX_YEAR - 1)
+    return out
+
+
 def parse_day(query: str) -> dict:
     q = parse_qs(query or "", max_num_fields=4)
     unknown = set(q) - {"date", "tz"}
@@ -463,7 +529,7 @@ def application(environ, start_response):
             return _error(start_response, ApiError("500 Internal Server Error", "internal_error", "erreur interne du moteur"))
 
     routes = {"/v1/chart": (parse_request, compute), "/v1/composite": (parse_composite, compute_composite),
-              "/v1/transit": (parse_transit, compute_transit)}
+              "/v1/transit": (parse_transit, compute_transit), "/v1/return": (parse_return, compute_return)}
     if path not in routes:
         return _error(start_response, ApiError("404 Not Found", "not_found", "adresse inconnue"))
     parse, run = routes[path]
