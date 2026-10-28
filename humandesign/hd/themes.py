@@ -139,13 +139,11 @@ GDH = {
     "gate_ring": ("#FBF8F1", 1.5),
     # Fin contour sombre sous un numéro ivoire, là où le fond seul ne suffit pas.
     "text_halo": {"color": "#1A1408", "opacity": 0.6, "width": 1.5},
-    # Portes inactives : brun sur un centre ouvert ; sur un centre défini, selon sa couleur
-    # (centres absents de la liste : ivoire avec le contour sombre).
+    # Portes inactives : brun sur un centre ouvert ; sur un centre défini, ivoire ou brun,
+    # le plus contrasté avec la couleur du centre (« auto », voir text_on). Un numéro
+    # ivoire qui reste sous 4,5 reçoit le contour sombre.
     "gate_text": "#3A3326", "gate_text_defined_opacity": None,
-    "gate_text_defined": {"head": "#3A3326", "g": "#3A3326", "heart": "#FBF8F1", "sacral": "#FBF8F1",
-                          "ajna": "#FBF8F1", "throat": "#FBF8F1", "spleen": "#FBF8F1",
-                          "solar_plexus": "#FBF8F1", "root": "#FBF8F1"},
-    "gate_text_halo_centers": ("ajna", "throat", "spleen", "solar_plexus", "root"),
+    "gate_text_defined": "auto", "text_choices": ("#FBF8F1", "#3A3326"),
     "text": "#3A3326", "muted": "#6E6452",
     "background": {"kind": "marble", "color": "#F6F1E7", "texture": GDH_MARBLE},
     "legend_design": "or", "legend_personality": "bleu nuit",
@@ -160,6 +158,15 @@ PUBLIC_THEMES = ("atlas", "gdh")
 def solid(paint) -> str:
     """Une couleur unie : la première teinte d'un dégradé."""
     return paint.first if isinstance(paint, Gradient) else paint
+
+
+MIN_CONTRAST = 4.5  # WCAG 2, texte courant
+
+
+def text_on(background: str, choices) -> str:
+    """Parmi choices, la couleur de texte la plus contrastée avec ce fond (au moins
+    MIN_CONTRAST quand l'une y arrive, sinon la meilleure des deux)."""
+    return max(choices, key=lambda c: contrast(c, background))
 
 
 def contrast(a: str, b: str) -> float:

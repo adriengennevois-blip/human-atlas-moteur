@@ -36,7 +36,7 @@ import secrets
 from html import escape
 
 from . import data as D
-from .themes import THEMES, Gradient, Marble
+from .themes import MIN_CONTRAST, THEMES, Gradient, Marble, contrast, solid, text_on
 
 # --------------------------------------------------------------------------- gabarit
 
@@ -733,9 +733,12 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
             center = D.GATE_CENTER[g]
             on_color = center in defined
             fill = s["gate_text_defined"] if on_color else s["gate_text"]
-            if isinstance(fill, dict):  # une couleur par centre défini
-                fill = fill[center]
-            halo = _halo(s) if on_color and center in s.get("gate_text_halo_centers", ()) else ""
+            halo = ""
+            if fill == "auto":  # ivoire ou brun selon la couleur du centre défini
+                under = fills[center] if isinstance(fills, dict) else solid(fills)
+                fill = text_on(under, s["text_choices"])
+                if fill == s["text_choices"][0] and contrast(fill, under) < MIN_CONTRAST:
+                    halo = _halo(s)  # ivoire encore trop peu contrasté : contour sombre
             opacity = s["gate_text_defined_opacity"] if on_color else None
             op = f' fill-opacity="{opacity}"' if opacity is not None else ""
             parts.append(f'<text x="{x:.1f}" y="{y + 2.8:.1f}" font-family="{num}" font-size="8" '

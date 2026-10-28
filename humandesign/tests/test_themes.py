@@ -144,7 +144,8 @@ def test_gdh_gate_pastilles_and_numbers(i):
         else:
             assert all(re.search(rf'<path d="M{x},[^"]+Z" fill="{flat[s]}"/>', svg) for s in sides), g
     expected = {"head": ("#3A3326", False), "g": ("#3A3326", False), "heart": ("#FBF8F1", False),
-                "sacral": ("#FBF8F1", False)}
+                "sacral": ("#FBF8F1", False), "ajna": ("#3A3326", False), "throat": ("#FBF8F1", True),
+                "spleen": ("#FBF8F1", True), "solar_plexus": ("#FBF8F1", True), "root": ("#FBF8F1", True)}
     for g in range(1, 65):  # portes inactives
         if g in c.active_gates:
             continue
@@ -153,7 +154,7 @@ def test_gdh_gate_pastilles_and_numbers(i):
         if center not in c.defined_centers:
             color, halo = "#3A3326", False
         else:
-            color, halo = expected.get(center, ("#FBF8F1", True))
+            color, halo = expected[center]
         assert f'fill="{color}"' in text and (HALO in text) == halo, (g, center)
 
 
@@ -209,3 +210,10 @@ def test_api_unknown_theme_is_422(body):
 def test_theme_is_not_accepted_per_person():
     code, _ = call({"people": [PERSON, {**PERSON, "theme": "gdh"}]}, path="/v1/composite")
     assert code == 400
+
+
+def test_gdh_number_on_a_defined_center_is_the_most_contrasted():
+    from hd.themes import text_on
+    for center, color in CLASSIQUE["center_defined"].items():
+        chosen = text_on(color, GDH["text_choices"])
+        assert all(contrast(chosen, color) >= contrast(c, color) for c in GDH["text_choices"]), center
