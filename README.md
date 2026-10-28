@@ -111,7 +111,7 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
 
 Le détail des champs d'entrée et de sortie, et des codes d'erreur, se trouve dans [DEPLOIEMENT.md](humandesign/DEPLOIEMENT.md).
 
-**Thème de la carte (`"theme"`).** La carte SVG existe en deux thèmes de marque, qui ne changent que l'apparence (jamais le calcul) : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : fond marbre ivoire, centres définis en or, Design en or bronze, Personnalité en bleu nuit). Pour GoDesignHumain :
+**Thème de la carte (`"theme"`).** La carte SVG existe en deux thèmes de marque, qui ne changent que l'apparence (jamais le calcul) : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : fond marbre ivoire, centres définis aux couleurs officielles du Human Design, Design en or bronze, Personnalité en bleu nuit). Pour GoDesignHumain :
 
 ```bash
 curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer $ENGINE_API_KEY" -H "Content-Type: application/json" -d '{"date":"2000-01-01","time":"12:00","time_precision":"exacte","place":"Paris, France","name":"Exemple","theme":"gdh"}'

@@ -36,7 +36,7 @@ import secrets
 from html import escape
 
 from . import data as D
-from .themes import THEMES, Gradient, Marble
+from .themes import THEMES, Gradient, Marble, color_at, text_on
 
 # --------------------------------------------------------------------------- gabarit
 
@@ -704,6 +704,10 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
         if g in active:
             r = 6.8
             sides = active[g]
+            text_fill = s["gate_text_on"]
+            if text_fill == "auto":  # couleur réelle de la pastille à cette hauteur
+                under = [color_at(s[side], y, PAGE_H) for side in ("design", "personality") if side in sides]
+                text_fill = text_on(under, s["text_choices"])
             if s["gate_on"]:  # une seule couleur de pastille (classique)
                 parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{s["gate_on"]}"/>')
             elif sides == {"design", "personality"}:  # moitié Design, moitié Personnalité
@@ -713,10 +717,13 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
                 col = design if sides == {"design"} else personality
                 parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{col}"/>')
             parts.append(f'<text x="{x:.1f}" y="{y + 2.9:.1f}" font-family="{num}" font-size="8.4" '
-                         f'font-weight="{w_on}" text-anchor="middle" fill="{s["gate_text_on"]}">{g}</text>')
+                         f'font-weight="{w_on}" text-anchor="middle" fill="{text_fill}">{g}</text>')
         else:
             on_color = D.GATE_CENTER[g] in defined
             fill = s["gate_text_defined"] if on_color else s["gate_text"]
+            if fill == "auto":
+                under = fills[D.GATE_CENTER[g]] if isinstance(fills, dict) else fills
+                fill = text_on([under], s["text_choices"])
             opacity = s["gate_text_defined_opacity"] if on_color else None
             op = f' fill-opacity="{opacity}"' if opacity is not None else ""
             parts.append(f'<text x="{x:.1f}" y="{y + 2.8:.1f}" font-family="{num}" font-size="8" '

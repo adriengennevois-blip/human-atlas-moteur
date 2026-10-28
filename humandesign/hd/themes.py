@@ -114,8 +114,9 @@ COMPOSITE = {**ATLAS, "design": "#13777b", "personality": "#c2416b",
              "legend": False, "name_gradient": False}
 
 # GoDesignHumain : marbre ivoire, or (Design, l'inconscient) et bleu nuit (Personnalité,
-# le conscient). Les textes en couleur utilisent la teinte la plus foncée de chaque
+# le conscient) ; centres définis aux couleurs officielles. Les textes en couleur utilisent la teinte la plus foncée de chaque
 # dégradé, pour rester lisibles sur l'ivoire.
+# Veinage du fond.
 GDH_MARBLE = Marble("marbre", color=(0.55, 0.50, 0.42), opacity=0.12)
 GDH = {
     **ATLAS,
@@ -127,10 +128,14 @@ GDH = {
     "channel_inactive": "#E6DED0", "channel_edge": None,
     "center_open": "#FBF8F1", "center_open_stroke": "#C9A45C",
     "center_stroke": "#8C6A2E",
-    "center_defined": Gradient("or-centre", ((0, "#E9D7A4"), (0.5, "#C9A45C"), (1, "#9C7A35")), units="shape"),
-    "center_glow": False, "center_texture": GDH_MARBLE,
-    "gate_on": None, "gate_text_on": "#FBF8F1",
-    "gate_text": "#3A3326", "gate_text_defined": "#FBF8F1", "gate_text_defined_opacity": None,
+    # Centres définis : couleurs officielles Human Design, celles du thème classique.
+    "center_defined": CLASSIQUE["center_defined"],
+    "center_glow": False, "center_texture": None,
+    # Numéros sur un centre défini ou une pastille : ivoire ou brun, le plus contrasté
+    # avec la couleur réelle dessous (voir text_on).
+    "gate_on": None, "gate_text_on": "auto",
+    "gate_text": "#3A3326", "gate_text_defined": "auto", "gate_text_defined_opacity": None,
+    "text_choices": ("#FBF8F1", "#3A3326"),
     "text": "#3A3326", "muted": "#6E6452",
     "background": {"kind": "marble", "color": "#F6F1E7", "texture": GDH_MARBLE},
     "legend_design": "or", "legend_personality": "bleu nuit",
@@ -145,6 +150,35 @@ PUBLIC_THEMES = ("atlas", "gdh")
 def solid(paint) -> str:
     """Une couleur unie : la première teinte d'un dégradé."""
     return paint.first if isinstance(paint, Gradient) else paint
+
+
+def color_at(paint, y: float, height: float) -> str:
+    """Couleur réelle d'une peinture à la hauteur y (dégradé « page » interpolé)."""
+    if not isinstance(paint, Gradient):
+        return paint
+    t = min(max(y / height, 0.0), 1.0)
+    stops = paint.stops
+    for (o0, c0), (o1, c1) in zip(stops, stops[1:]):
+        if t <= o1:
+            k = 0 if o1 == o0 else (t - o0) / (o1 - o0)
+            a, b = (int(c0[i:i + 2], 16) for i in (1, 3, 5)), (int(c1[i:i + 2], 16) for i in (1, 3, 5))
+            return "#" + "".join(f"{round(x + (z - x) * k):02x}" for x, z in zip(a, b))
+    return stops[-1][1]
+
+
+def contrast(a: str, b: str) -> float:
+    """Rapport de contraste WCAG 2 entre deux couleurs « #rrggbb »."""
+    def lum(h):
+        c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    la, lb = lum(a), lum(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def text_on(backgrounds, choices) -> str:
+    """Parmi choices, la couleur de texte dont le pire contraste sur ces fonds est le meilleur."""
+    return max(choices, key=lambda c: min(contrast(c, b) for b in backgrounds))
 
 
 # Fiche complète de la ligne de commande (hd.svg, « python -m hd --svg ») : fond sombre.

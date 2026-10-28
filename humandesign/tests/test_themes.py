@@ -15,9 +15,10 @@ from xml.etree import ElementTree
 
 import pytest
 
-from hd.bodygraph import render_bodygraph
+from hd.bodygraph import PAGE_H, render_bodygraph
 from hd.chart import build_chart
-from hd.themes import CLASSIQUE, GDH, THEMES
+from hd.data import GATE_CENTER
+from hd.themes import CLASSIQUE, GDH, THEMES, color_at, contrast
 from hd.timeutil import local_to_utc
 
 from .test_api import KEY, call
@@ -76,9 +77,9 @@ def test_gdh_is_valid_svg(gdh):
 
 
 def test_gdh_colors(gdh):
-    for color in ("#F6F1E7", "#E9D7A4", "#C9A45C", "#9C7A35", "#8C6A2E", "#2B3550", "#141A2B",
-                  "#FBF8F1", "#E6DED0", "#3A3326"):
+    for color in ("#F6F1E7", "#C9A45C", "#8C6A2E", "#2B3550", "#141A2B", "#FBF8F1", "#E6DED0", "#3A3326"):
         assert color in gdh, color
+    assert "#E9D7A4" not in gdh and "#9C7A35" not in gdh  # plus de dégradé or sur les centres
     for color in set(HEX.findall(gdh)):  # aucune couleur d'Atlas ne déborde
         assert color.lower() not in {"#e07a1f", "#6b2fa3", "#d6cee2", "#efebf3", "#7b22aa"}, color
 
@@ -89,16 +90,14 @@ def test_gdh_marble_veins(gdh):
     assert "<feColorMatrix" in gdh
     table = re.search(r'tableValues="([^"]+)"', gdh).group(1)
     assert max(float(v) for v in table.split()) <= 0.12  # veines à 12 % au plus
-    # le même veinage sur le fond et sur chaque centre défini
-    marble = "url(#gdh-hdtest0001-marbre)"
-    assert gdh.count(marble) == 1 + len(_chart(1).defined_centers)
+    # veinage sur le fond seulement (centres définis en aplat)
+    assert gdh.count("url(#gdh-hdtest0001-marbre)") == 1
 
 
 def test_gdh_ids_are_prefixed(gdh):
     ids = IDS.findall(gdh)
     assert ids and all(i.startswith("gdh-hdtest0001-") for i in ids)
-    assert {"gdh-hdtest0001-or", "gdh-hdtest0001-nuit", "gdh-hdtest0001-or-centre",
-            "gdh-hdtest0001-marbre"} <= set(ids)
+    assert {"gdh-hdtest0001-or", "gdh-hdtest0001-nuit", "gdh-hdtest0001-marbre"} <= set(ids)
     assert len(ids) == len(set(ids)) and set(REFS_TO_IDS.findall(gdh)) <= set(ids)
 
 
@@ -119,11 +118,31 @@ def test_gdh_channel_on_both_sides_is_half_gold_half_night_blue():
                                ("url(#gdh-hdtest0001-nuit)", f'stroke-dasharray="{GDH["both_dash"]}"')]
 
 
-def test_gdh_gate_numbers(gdh):
-    c = _chart(1)
-    # porte inactive d'un centre ouvert : brun ; d'un centre défini : ivoire
-    assert re.search(r'fill="#3A3326">64</text>', gdh) and "head" not in c.defined_centers
-    assert re.search(r'fill="#FBF8F1">62</text>', gdh) and "throat" in c.defined_centers
+def test_gdh_defined_centers_use_the_official_colors(gdh):
+    for center in _chart(1).defined_centers:
+        color = CLASSIQUE["center_defined"][center]
+        assert re.search(rf'id="gdh-hdtest0001-center-{center}" d="[^"]+" fill="{color}" stroke="#8C6A2E"', gdh), center
+    assert re.search(r'id="gdh-hdtest0001-center-head" d="[^"]+" fill="#FBF8F1" stroke="#C9A45C"', gdh)  # ouvert
+
+
+@pytest.mark.parametrize("i", range(1, 4))
+def test_gdh_gate_numbers_take_the_most_contrasted_color(i):
+    """Ivoire ou brun : le meilleur contraste avec la couleur réelle dessous."""
+    c = _chart(i)
+    svg = render_bodygraph(c, theme="gdh", uid="u")
+    choices = GDH["text_choices"]
+    best = lambda under: max(choices, key=lambda x: min(contrast(x, u) for u in under))
+    for g, sides in c.active_gates.items():  # pastilles
+        m = re.search(rf'<text x="[\d.]+" y="([\d.]+)"[^>]*font-size="8.4"[^>]*fill="([^"]+)">{g}</text>', svg)
+        y = float(m.group(1)) - 2.9
+        under = [color_at(GDH[s], y, PAGE_H) for s in sides]
+        assert m.group(2) == best(under), g
+    for g in range(1, 65):  # portes inactives
+        if g in c.active_gates:
+            continue
+        fill = re.search(rf'font-size="8"[^>]*fill="([^"]+)">{g}</text>', svg).group(1)
+        center = GATE_CENTER[g]
+        assert fill == (best([CLASSIQUE["center_defined"][center]]) if center in c.defined_centers else "#3A3326"), g
 
 
 def test_themes_change_nothing_but_colors():
