@@ -21,7 +21,7 @@ from hd.bodygraph import (EMBEDDED_FONTS, SUMMARY_MAX_WIDTH, SUMMARY_SIZE, rende
 from hd.chart import build_chart
 from hd.timeutil import local_to_utc
 
-from .test_reference import REFERENCE_1
+from .test_reference import FICTIF_1
 
 FONTS = Path(__file__).parents[1] / "hd" / "fonts"
 PROFILES = ["1/3", "1/4", "2/4", "2/5", "3/5", "3/6", "4/6", "4/1", "5/1", "5/2", "6/2", "6/3"]
@@ -29,7 +29,7 @@ PROFILES = ["1/3", "1/4", "2/4", "2/5", "3/5", "3/6", "4/6", "4/1", "5/1", "5/2"
 
 @pytest.fixture(scope="module")
 def chart():
-    return build_chart(local_to_utc(REFERENCE_1["local"], REFERENCE_1["tz"]).utc)
+    return build_chart(local_to_utc(FICTIF_1["local"], FICTIF_1["tz"]).utc)
 
 
 def all_summaries(chart):

@@ -20,8 +20,8 @@ from hd.chart import build_chart
 from hd.content_keys import all_keys, chart_keys, cross_key, manifest
 from hd.timeutil import local_to_utc
 
-from .test_api import KEY, REFERENCE_1 as API_REF_1, call
-from .test_reference import REFERENCE_1
+from .test_api import KEY, FICTIF_1 as API_REF_1, call
+from .test_reference import FICTIF_1
 
 MANIFEST = Path(__file__).parents[1] / "content-keys.json"
 KEY_RE = re.compile(r"^[a-z]+(\.[a-z0-9]+(-[a-z0-9]+)*)+$")
@@ -57,14 +57,14 @@ def test_examples_from_the_brief():
         assert k in keys, k
 
 
-def test_reference_1_keys():
-    c = build_chart(local_to_utc(REFERENCE_1["local"], REFERENCE_1["tz"]).utc)
+def test_fictif_1_keys():
+    c = build_chart(local_to_utc(FICTIF_1["local"], FICTIF_1["tz"]).utc)
     k = chart_keys(c)
     assert (k["type"], k["authority"], k["profile"], k["definition"], k["cross"]) == (
-        "type.generator", "authority.sacral", "profile.5-1", "definition.triple-split", "cross.left-angle.plane.2")
-    assert k["channels"] == ["channel.3-60", "channel.13-33", "channel.24-61"]
-    assert "center.throat.defined" in k["centers"] and "center.spleen.open" in k["centers"] and len(k["centers"]) == 9
-    assert k["variables"][:2] == ["variable.determination.right", "variable.determination.color-4"]
+        "type.generator", "authority.sacral", "profile.4-6", "definition.triple-split", "cross.right-angle.rulership.4")
+    assert k["channels"] == ["channel.10-34", "channel.26-44", "channel.47-64"]
+    assert "center.throat.open" in k["centers"] and "center.spleen.defined" in k["centers"] and len(k["centers"]) == 9
+    assert k["variables"][:2] == ["variable.determination.left", "variable.determination.color-5"]
 
 
 def test_every_chart_only_uses_listed_keys():
@@ -81,8 +81,9 @@ def test_every_chart_only_uses_listed_keys():
 
 
 def test_cross_key_follows_the_cross_name():
-    c = build_chart(local_to_utc(REFERENCE_1["local"], REFERENCE_1["tz"]).utc)
-    assert c.cross == "Left Angle Cross of the Plane 2"
+    c = build_chart(local_to_utc(FICTIF_1["local"], FICTIF_1["tz"]).utc)
+    assert c.cross == "Right Angle Cross of Rulership 4"
+    assert cross_key(c.personality["sun"].gate, "5/1").startswith("cross.left-angle.")
     assert cross_key(c.personality["sun"].gate, "4/1").startswith("cross.juxtaposition.")
     assert cross_key(c.personality["sun"].gate, "1/3").startswith("cross.right-angle.")
 
@@ -98,6 +99,6 @@ def test_chart_route_content_keys_option():
     code, r = call({**API_REF_1, "include_svg": False})
     assert "content_keys" not in r
     code, r = call({**API_REF_1, "include_svg": False, "content_keys": True})
-    assert code == 200 and r["content_keys"]["profile"] == "profile.5-1"
+    assert code == 200 and r["content_keys"]["profile"] == "profile.4-6"
     code, r = call({**API_REF_1, "content_keys": "oui"})
     assert code == 400

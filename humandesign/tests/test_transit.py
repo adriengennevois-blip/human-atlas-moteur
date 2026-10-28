@@ -19,10 +19,10 @@ from hd.timeutil import local_to_utc
 from hd.transit import day_bounds, day_changes, overlay, transit, transit_activations
 
 from .test_api import KEY, call
-from .test_reference import REFERENCE_1
+from .test_reference import FICTIF_1, api_body
 
 AT = datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc)
-PERSON_1 = {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris"}
+PERSON_1 = api_body(FICTIF_1)
 
 
 @pytest.fixture(autouse=True)
@@ -32,7 +32,7 @@ def api_key(monkeypatch):
 
 @pytest.fixture(scope="module")
 def natal():
-    return build_chart(local_to_utc(REFERENCE_1["local"], REFERENCE_1["tz"]).utc)
+    return build_chart(local_to_utc(FICTIF_1["local"], FICTIF_1["tz"]).utc)
 
 
 def value(p, when):

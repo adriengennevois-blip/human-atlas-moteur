@@ -18,8 +18,8 @@ Le moteur ne stocke rien : il calcule, répond, puis oublie.
 | `humandesign/api_app.py` | l'API web (WSGI, sans framework) |
 | `humandesign/passenger_wsgi.py` | point d'entrée pour l'hébergement (Passenger, o2switch) |
 | `humandesign/ephe/` | fichiers d'éphémérides de la Swiss Ephemeris (années 1800 à 2400) |
-| `humandesign/tests/` | tests automatiques, dont 5 thèmes de référence relevés sur mybodygraph.com |
-| `humandesign/exemples/` | cartes d'exemple des 5 thèmes de référence, dans les deux habillages |
+| `humandesign/tests/` | tests automatiques, sur des naissances fictives (valeurs de non-régression). La vérification contre mybodygraph.com se fait sur des thèmes réels gardés hors du dépôt (`tests/references_privees.json`, ignoré par git) |
+| `humandesign/exemples/` | cartes d'exemple de 5 naissances fictives, dans les deux habillages |
 | `humandesign/outils/` | `compiler_pyswisseph_linux.py` : fabrique pyswisseph pour un serveur Linux sans compilateur (o2switch) |
 | `humandesign/DEPLOIEMENT.md` | guide de mise en ligne pas à pas |
 
@@ -145,7 +145,7 @@ La réponse donne aussi le type et la définition de la composite, ses centres d
 - **Design** : l'instant exact où le Soleil se trouvait 88° d'arc solaire avant sa position de naissance, calculé par itération de Newton à 1e-10° près.
 - **Nœuds lunaires** : nœud vrai (True Node), comme Jovian Archive et mybodygraph.
 - **Roue** : la porte 41 commence à 302° (2° Verseau). Une porte fait 5,625° et une ligne 0,9375°.
-- **Validation** : les 5 thèmes de référence de mybodygraph.com (130 activations, triangles ▲▼★ compris) sont identiques.
+- **Validation** : 5 thèmes réels relevés sur mybodygraph.com (130 activations, triangles ▲▼★ compris) sont identiques. Ce sont des personnes réelles : leurs naissances restent hors du dépôt public, dans un fichier local ignoré par git ; les tests publics utilisent des naissances fictives.
 
 ## Licences
 

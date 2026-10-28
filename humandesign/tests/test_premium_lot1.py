@@ -27,10 +27,10 @@ from hd.chart import activation, build_chart
 from hd.ephemeris import design_jd, julian_day
 from hd.timeutil import local_to_utc
 
-from .test_api import KEY, REFERENCE_1 as API_REF_1, call
-from .test_reference import REFERENCE_1, REFERENCE_2, REFERENCE_3, REFERENCE_4, REFERENCE_5
+from .test_api import KEY, FICTIF_1 as API_REF_1, call
+from .test_reference import FICTIF_1, FICTIF_2, FICTIF_3, FICTIF_4, FICTIF_5
 
-REFS = [REFERENCE_1, REFERENCE_2, REFERENCE_3, REFERENCE_4, REFERENCE_5]
+REFS = [FICTIF_1, FICTIF_2, FICTIF_3, FICTIF_4, FICTIF_5]
 LEVEL_ORDER = ["base", "tone", "color", "line", "gate"]
 
 
@@ -41,7 +41,7 @@ def api_key(monkeypatch):
 
 @pytest.fixture(scope="module")
 def chart1():
-    return build_chart(local_to_utc(REFERENCE_1["local"], REFERENCE_1["tz"]).utc)
+    return build_chart(local_to_utc(FICTIF_1["local"], FICTIF_1["tz"]).utc)
 
 
 @pytest.fixture(scope="module")
@@ -121,9 +121,16 @@ def test_moon_base_changes_within_minutes_and_outer_gates_within_hours_do_not(st
 
 def test_precision_levels_follow_declared_time_precision(chart1, stab1):
     exact = P.precision(chart1, "exacte", stab1)
-    assert exact["level"] == "fiable" and exact["uncertainty_minutes"] == 5
     approx = P.precision(chart1, "approximative", stab1)
-    assert approx["level"] in ("à confirmer", "incertain") and approx["uncertainty_minutes"] == 60
+    assert (exact["uncertainty_minutes"], approx["uncertainty_minutes"]) == (5, 60)
+    for p in (exact, approx):
+        w = p["uncertainty_minutes"]
+        shaky = lambda m: any(x is not None and x < w for x in m.values())
+        expected = ("incertain" if shaky(p["chart_stable_minutes"])
+                    else "à confirmer" if shaky(p["variables_stable_minutes"]) else "fiable")
+        assert p["level"] == expected
+    # thème fictif 1 : le thème tient à ±5 min, mais le ton d'une variable change dans la marge
+    assert exact["level"] == "à confirmer" and approx["level"] in ("à confirmer", "incertain")
     core = exact["chart_stable_minutes"]
     assert core["before"] > 5 and core["after"] > 5
 
@@ -141,7 +148,7 @@ def test_variables_reuse_the_existing_arrows(chart1):
     v = P.variables(chart1)
     assert set(v) == {"determination", "environment", "motivation", "perspective"}
     assert [v[k]["direction"] for k in ("determination", "environment", "motivation", "perspective")] == \
-        list(REFERENCE_1["variables"])
+        list(FICTIF_1["variables"])
     assert (v["determination"]["side"], v["determination"]["planet"]) == ("design", "sun")
     assert (v["perspective"]["side"], v["perspective"]["planet"]) == ("personality", "north_node")
     for x in v.values():
@@ -180,8 +187,8 @@ def test_color_tone_base_match_reference_app():
     raise NotImplementedError
 
 
-@pytest.mark.skip(reason="en attente de référence : couleur et ton des 4 variables pour les thèmes de référence "
-                         "(directions vérifiées : référence 1 et référence privée B ; libellés à confirmer)")
+@pytest.mark.skip(reason="en attente de référence : couleur et ton des 4 variables pour des thèmes réels "
+                         "(directions vérifiées sur des références privées ; libellés à confirmer)")
 def test_variables_match_reference_app():
     raise NotImplementedError
 

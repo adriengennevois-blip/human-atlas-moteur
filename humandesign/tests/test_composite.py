@@ -21,10 +21,10 @@ from hd.composite import composite, composite_active_gates, connection, render_c
 from hd.timeutil import local_to_utc
 
 from .test_api import KEY, call
-from .test_reference import REFERENCE_1, REFERENCE_4
+from .test_reference import FICTIF_1, FICTIF_4, api_body
 
-PERSON_1 = {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris", "name": "Référence 1"}
-PERSON_4 = {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris", "name": "Référence 4"}
+PERSON_1 = api_body(FICTIF_1, name="Fictif 1")
+PERSON_4 = api_body(FICTIF_4, name="Fictif 4")
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +34,7 @@ def api_key(monkeypatch):
 
 @pytest.fixture(scope="module")
 def charts():
-    return [build_chart(local_to_utc(r["local"], r["tz"]).utc) for r in (REFERENCE_1, REFERENCE_4)]
+    return [build_chart(local_to_utc(r["local"], r["tz"]).utc) for r in (FICTIF_1, FICTIF_4)]
 
 
 # ---------------------------------------------------------------- les quatre connexions
@@ -94,7 +94,7 @@ def test_channels_only_together_are_the_electromagnetic_ones(charts):
     c = composite(a, b)
     own = {f"{x}-{y}" for ch in (a, b) for x, y in ch.channels}
     assert set(c["channels_only_together"]) == {r["channel"] for r in c["channels"]} - own
-    assert c["channels_only_together"]  # ces deux thèmes en ont (4-63, 7-31)
+    assert c["channels_only_together"]  # ces deux thèmes en ont (12-22, 20-34, 27-50, 34-57)
     assert set(c["centers_only_together"]) <= set(c["defined_centers"])
     assert not set(c["centers_only_together"]) & (set(a.defined_centers) | set(b.defined_centers))
 
@@ -145,7 +145,7 @@ def test_composite_route():
     code, r = call({"people": [PERSON_1, PERSON_4]}, path="/v1/composite")
     assert code == 200
     assert set(r) == {"people", "composite", "svg"}
-    assert [p["name"] for p in r["people"]] == ["Référence 1", "Référence 4"]
+    assert [p["name"] for p in r["people"]] == ["Fictif 1", "Fictif 4"]
     assert r["people"][0]["type"] == "Generator" and r["people"][1]["type"] == "Manifestor"
     assert {x["connection"] for x in r["composite"]["channels"]} <= {
         "electromagnetic", "compromise", "dominance", "companionship"}
@@ -182,7 +182,7 @@ def test_composite_requires_the_key():
 
 # ---------------------------------------------------------------- en attente de référence
 
-@pytest.mark.skip(reason="en attente de référence : composite des thèmes de référence 1 et 4 "
+@pytest.mark.skip(reason="en attente de référence : composite de deux thèmes réels "
                          "(type de connexion de chaque canal) relevée dans une appli de référence")
 def test_composite_matches_reference_app():
     raise NotImplementedError

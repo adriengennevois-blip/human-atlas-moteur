@@ -19,7 +19,7 @@ import api_app as A
 from hd.timeutil import GeocodingUnavailable, Place
 
 KEY = "k" * 40
-REFERENCE_1 = {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris"}
+FICTIF_1 = {"date": "1985-12-12", "time": "11:45", "time_precision": "exacte", "tz": "Europe/Paris"}  # naissance fictive
 
 
 @pytest.fixture(autouse=True)
@@ -74,12 +74,12 @@ def test_unknown_path_and_method():
 
 @pytest.mark.parametrize("key", [None, "", "mauvaise-cle", KEY + "x", KEY[:-1]])
 def test_wrong_or_missing_key_is_401(key):
-    code, body = call(REFERENCE_1, key=key)
+    code, body = call(FICTIF_1, key=key)
     assert code == 401 and body["error"]["code"] == "unauthorized"
 
 
 def test_key_must_use_bearer_scheme():
-    code, _ = call(REFERENCE_1, key=None, headers={"HTTP_AUTHORIZATION": f"Basic {KEY}"})
+    code, _ = call(FICTIF_1, key=None, headers={"HTTP_AUTHORIZATION": f"Basic {KEY}"})
     assert code == 401
 
 
@@ -89,65 +89,65 @@ def test_everything_refused_if_server_key_missing_or_short(monkeypatch, server_k
         monkeypatch.delenv("ENGINE_API_KEY")
     else:
         monkeypatch.setenv("ENGINE_API_KEY", server_key)
-    assert call(REFERENCE_1, key=server_key or "")[0] == 401
+    assert call(FICTIF_1, key=server_key or "")[0] == 401
 
 
 def test_key_is_compared_in_constant_time(monkeypatch):
     seen = []
     real = A.hmac.compare_digest
     monkeypatch.setattr(A.hmac, "compare_digest", lambda a, b: seen.append(1) or real(a, b))
-    call(REFERENCE_1, key="faux")
+    call(FICTIF_1, key="faux")
     assert seen
 
 
 # ---------------------------------------------------------------- réponse
 
-def test_full_response_for_reference_1():
-    code, r = call({**REFERENCE_1, "name": "Référence 1"})
+def test_full_response_for_fictif_1():
+    code, r = call({**FICTIF_1, "name": "Fictif 1"})
     assert code == 200
     assert set(r) == {"type", "type_fr", "authority", "authority_fr", "profile", "profile_label",
                       "cross", "channels", "defined_centers", "definition", "active_gates",
                       "summary", "place_resolved", "time_warning", "details", "svg"}
     assert (r["type"], r["type_fr"]) == ("Generator", "Générateur")
     assert (r["authority"], r["authority_fr"]) == ("Sacral", "Sacrale")
-    assert r["profile"] == "5/1" and r["profile_label"] == "5/1 (Hérétique / Investigateur)"
-    assert r["cross"] == "Left Angle Cross of the Plane 2"
-    assert r["channels"] == ["3-60", "13-33", "24-61"]
-    assert r["defined_centers"] == ["head", "ajna", "throat", "g", "sacral", "root"]
+    assert r["profile"] == "4/6" and r["profile_label"] == "4/6 (Opportuniste / Modèle)"
+    assert r["cross"] == "Right Angle Cross of Rulership 4"
+    assert r["channels"] == ["10-34", "26-44", "47-64"]
+    assert r["defined_centers"] == ["head", "ajna", "g", "heart", "sacral", "spleen"]
     assert r["definition"] == 3
-    assert r["active_gates"]["6"] == ["design", "personality"] and r["active_gates"]["24"] == ["design"]
-    assert r["summary"] == "Générateur à autorité sacrale, profil 5/1 (Hérétique / Investigateur)"
+    assert r["active_gates"]["10"] == ["design", "personality"] and r["active_gates"]["47"] == ["design"]
+    assert r["summary"] == "Générateur à autorité sacrale, profil 4/6 (Opportuniste / Modèle)"
     assert r["place_resolved"] == {"tz": "Europe/Paris"}
     assert r["time_warning"] is None
     ElementTree.fromstring(r["svg"])
-    assert "Référence 1" in r["svg"]
+    assert "Fictif 1" in r["svg"]
 
 
-def test_details_match_reference_1():
-    """Le thème complet (13 planètes × 2 côtés) est celui de mybodygraph pour la référence 1."""
-    from .test_reference import PLANET_ORDER, REFERENCE_1 as REF
-    code, r = call({**REFERENCE_1, "include_svg": False})
+def test_details_match_fictif_1():
+    """Le thème complet (13 planètes × 2 côtés) est celui du thème fictif 1 (non-régression)."""
+    from .test_reference import PLANET_ORDER, FICTIF_1 as REF
+    code, r = call({**FICTIF_1, "include_svg": False})
     d = r["details"]
     assert " ".join(d["personality"][p]["label"] for p in PLANET_ORDER) == REF["personality"]
     assert " ".join(d["design"][p]["label"] for p in PLANET_ORDER) == REF["design"]
-    assert d["cross_gates"] == "SUPPRIME" and d["quarter"] in ("Initiation", "Civilisation", "Dualité", "Mutation")
+    assert d["cross_gates"] == "26/45 | 47/22" and d["quarter"] in ("Initiation", "Civilisation", "Dualité", "Mutation")
     v = d["variables"]
     assert (v["design_sun"], v["design_node"], v["personality_sun"], v["personality_node"]) == REF["variables"]
     a = d["personality"]["sun"]
     assert set(a) == {"gate", "line", "color", "tone", "base", "fixing", "label", "longitude"}
     assert 1 <= a["color"] <= 6 and 1 <= a["tone"] <= 6 and 1 <= a["base"] <= 5
-    assert d["birth_utc"].startswith("1900-01-01T00:00")
+    assert d["birth_utc"].startswith("1985-12-12T10:45")
 
 
 def test_without_svg_and_classic_skin():
-    code, r = call({**REFERENCE_1, "include_svg": False})
+    code, r = call({**FICTIF_1, "include_svg": False})
     assert code == 200 and "svg" not in r
-    code, r = call({**REFERENCE_1, "skin": "classique"})
+    code, r = call({**FICTIF_1, "skin": "classique"})
     assert code == 200 and "#c62828" in r["svg"]
 
 
 def test_lat_lon():
-    code, r = call({"date": "1900-01-01", "time": "00:00", "time_precision": "exacte",
+    code, r = call({"date": "1985-12-12", "time": "11:45", "time_precision": "exacte",
                     "lat": 45.76, "lon": 4.83})
     assert code == 200 and r["type"] == "Generator"
     assert r["place_resolved"] == {"lat": 45.76, "lon": 4.83, "tz": "Europe/Paris"}
@@ -155,15 +155,15 @@ def test_lat_lon():
 
 def test_place_is_geocoded_and_returned(monkeypatch):
     monkeypatch.setattr(A, "geocode", lambda q: Place("Lyon, Rhône, France", 45.76, 4.83, "Europe/Paris"))
-    code, r = call({"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "place": "Lyon"})
+    code, r = call({"date": "1985-12-12", "time": "11:45", "time_precision": "exacte", "place": "Lyon"})
     assert code == 200 and r["place_resolved"]["name"] == "Lyon, Rhône, France"
-    assert r["profile"] == "5/1"
+    assert r["profile"] == "4/6"
 
 
 def test_ambiguous_place_is_reported(monkeypatch):
     monkeypatch.setattr(A, "geocode", lambda q: Place(
         "Saint-Denis, France", 48.94, 2.36, "Europe/Paris", ["Saint-Denis, La Réunion, France (Indian/Reunion)"]))
-    code, r = call({**REFERENCE_1, "tz": None, "place": "Saint-Denis"})
+    code, r = call({**FICTIF_1, "tz": None, "place": "Saint-Denis"})
     assert code == 200 and r["place_resolved"]["ambiguous"] is True
     assert "Plusieurs lieux" in r["time_warning"]
 
@@ -174,7 +174,7 @@ def test_place_not_found_and_geocoder_down(monkeypatch):
 
     def down(q):
         raise GeocodingUnavailable("panne")
-    body = {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "place": "zzqx"}
+    body = {"date": "1985-12-12", "time": "11:45", "time_precision": "exacte", "place": "zzqx"}
     monkeypatch.setattr(A, "geocode", not_found)
     code, r = call(body)
     assert code == 422 and r["error"]["code"] == "place_not_found"
@@ -184,9 +184,9 @@ def test_place_not_found_and_geocoder_down(monkeypatch):
 
 
 def test_approximate_time_and_dst_warnings():
-    code, r = call({**REFERENCE_1, "time_precision": "approximative"})
+    code, r = call({**FICTIF_1, "time_precision": "approximative"})
     assert code == 200 and "approximative" in r["time_warning"]
-    code, r = call({**REFERENCE_1, "date": "2021-03-28", "time": "02:30"})
+    code, r = call({**FICTIF_1, "date": "2021-03-28", "time": "02:30"})
     assert code == 200 and "inexistante" in r["time_warning"]
 
 
@@ -195,7 +195,7 @@ def test_approximate_time_and_dst_warnings():
 def test_unknown_time_is_refused_without_computing(monkeypatch):
     monkeypatch.setattr(A, "build_chart", lambda *a, **k: pytest.fail("ne doit pas calculer"))
     monkeypatch.setattr(A, "geocode", lambda q: pytest.fail("ne doit pas géocoder"))
-    code, r = call({"date": "1900-01-01", "time_precision": "inconnue", "place": "Lyon"})
+    code, r = call({"date": "1985-12-12", "time_precision": "inconnue", "place": "Lyon"})
     assert code == 422 and r["error"]["code"] == "time_unknown"
     assert "heure" in r["error"]["message"].lower()
 
@@ -203,8 +203,8 @@ def test_unknown_time_is_refused_without_computing(monkeypatch):
 # ---------------------------------------------------------------- validation
 
 @pytest.mark.parametrize("patch", [
-    {"date": "01/01/1900"}, {"date": "1999-02-30"}, {"date": "1700-01-01"}, {"date": 19000101},
-    {"time": "8:26"}, {"time": "24:00"}, {"time": "08:60"}, {"time": "08:26:00"},
+    {"date": "12/12/1985"}, {"date": "1999-02-30"}, {"date": "1700-01-01"}, {"date": 19851212},
+    {"time": "9:45"}, {"time": "24:00"}, {"time": "08:60"}, {"time": "11:45:00"},
     {"time_precision": "exact"}, {"time_precision": None},
     {"tz": "Europe/Lyon"}, {"tz": "../../etc/passwd"},
     {"skin": "rose"}, {"include_svg": "oui"}, {"name": 12}, {"name": "x" * 61}, {"name": "a\x00b"},
@@ -216,7 +216,7 @@ def test_unknown_time_is_refused_without_computing(monkeypatch):
     {"tz": None, "place": ""}, {"tz": None, "place": "x" * 201},
 ])
 def test_invalid_input_is_400(patch):
-    body = {k: v for k, v in {**REFERENCE_1, **patch}.items() if v is not None}
+    body = {k: v for k, v in {**FICTIF_1, **patch}.items() if v is not None}
     code, r = call(body)
     assert code == 400, (patch, r)
     assert set(r["error"]) == {"code", "message"}
@@ -229,10 +229,10 @@ def test_not_a_json_object_is_400(raw):
 
 
 def test_body_limited_to_10_kb():
-    big = json.dumps({**REFERENCE_1, "name": "x" * 11000}).encode()
+    big = json.dumps({**FICTIF_1, "name": "x" * 11000}).encode()
     assert call(raw=big)[0] == 413
     # Content-Length mensonger : on ne lit jamais plus que la limite
-    env_body = {**REFERENCE_1}
+    env_body = {**FICTIF_1}
     code, _ = call(env_body, headers={"CONTENT_LENGTH": "999999"})
     assert code == 413
 
@@ -241,7 +241,7 @@ def test_body_limited_to_10_kb():
 
 @pytest.mark.parametrize("name", ['<script>alert("x")</script>', "Zoé & <Léa>", 'Dit "Doudou"', "O'Neil"])
 def test_name_is_escaped_in_svg(name):
-    code, r = call({**REFERENCE_1, "name": name})
+    code, r = call({**FICTIF_1, "name": name})
     assert code == 200
     ElementTree.fromstring(r["svg"])
     assert "<script>" not in r["svg"]
@@ -251,13 +251,13 @@ def test_name_is_escaped_in_svg(name):
 
 def test_no_birth_data_in_logs(monkeypatch, caplog):
     caplog.set_level(logging.DEBUG)
-    monkeypatch.setattr(A, "build_chart", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("1900-01-01 Lyon")))
-    code, r = call({**REFERENCE_1, "name": "Référence 1"})
+    monkeypatch.setattr(A, "build_chart", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("1985-12-12 Lyon")))
+    code, r = call({**FICTIF_1, "name": "Fictif 1"})
     assert code == 500 and r["error"]["code"] == "internal_error"
-    assert "1999" not in r["error"]["message"]
+    assert "1985" not in r["error"]["message"]
     for rec in caplog.records:
         msg = rec.getMessage()
-        assert "1999" not in msg and "Référence" not in msg and "Lyon" not in msg
+        assert "1985" not in msg and "Fictif" not in msg and "Lyon" not in msg
         assert rec.exc_info is None
 
 

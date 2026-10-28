@@ -16,7 +16,7 @@ Croix d'incarnation et Canaux sont disponibles en option (extended=True),
 pour un futur retour plus détaillé, sans changer la forme de base.
 
 Ce module ne réécrit aucun calcul : il appelle hd.chart.build_chart, le même
-moteur validé sur les 5 thèmes de référence (tests/test_reference.py).
+moteur validé sur 5 thèmes réels de mybodygraph (tests privés, hors dépôt).
 """
 
 from dataclasses import dataclass

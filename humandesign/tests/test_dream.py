@@ -10,6 +10,7 @@
 """Lot 6 : thème de rêve, route réservée en attendant sa règle."""
 import pytest
 
+from .test_reference import FICTIF_1, api_body
 from .test_api import KEY, call
 
 
@@ -19,8 +20,7 @@ def api_key(monkeypatch):
 
 
 def test_dream_is_pending_specification():
-    code, r = call({"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris"},
-                   path="/v1/dream")
+    code, r = call(api_body(FICTIF_1), path="/v1/dream")
     assert code == 501 and r["error"]["code"] == "pending_specification"
 
 

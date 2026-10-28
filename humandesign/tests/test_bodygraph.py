@@ -12,45 +12,49 @@ import re
 
 from hd.bodygraph import SKINS, derive, render_bodygraph, validate_template
 
-# Référence 1, relevée sur HumanDesignApp (porte : côtés activés)
-REFERENCE_1_CAPTURE = {}
+# Thème fictif 1 (tests/test_reference.py), porte : côtés activés. La vérification sur une
+# capture de HumanDesignApp se fait sur un thème réel, hors dépôt (test_private_references_match_app).
+FICTIF_1_GATES = {
+    4: ["design"], 5: ["design"], 9: ["personality"], 10: ["design", "personality"],
+    11: ["personality"], 13: ["personality"], 14: ["personality"], 19: ["design"], 22: ["design"],
+    24: ["design", "personality"], 26: ["personality"], 28: ["design", "personality"],
+    34: ["personality"], 43: ["design"], 44: ["design", "personality"], 45: ["personality"],
+    46: ["design"], 47: ["design"], 50: ["personality"], 59: ["design"], 64: ["design"],
+}
 
 
 def test_template_matches_engine_tables():
     assert validate_template()
 
 
-def test_reference_1_channels_and_centers():
-    _, channels, defined = derive(REFERENCE_1_CAPTURE)
-    assert channels == [(3, 60), (13, 33), (24, 61)]
-    assert defined == {"head", "ajna", "throat", "g", "sacral", "root"}
+def test_fictif_1_channels_and_centers():
+    _, channels, defined = derive(FICTIF_1_GATES)
+    assert channels == [(10, 34), (26, 44), (47, 64)]
+    assert defined == {"head", "ajna", "g", "heart", "sacral", "spleen"}
 
 
 def test_half_channel_colors_follow_the_code():
-    svg = render_bodygraph(active_gates=REFERENCE_1_CAPTURE, skin="atlas", show_planets=False, show_caption=False)
+    svg = render_bodygraph(active_gates=FICTIF_1_GATES, skin="atlas", show_planets=False, show_caption=False)
     s = SKINS["atlas"]
     strokes = lambda g: set(re.findall(rf'class="gate-{g}" d="[^"]+" stroke="([^"]+)"', svg))
-    assert strokes(24) == {s["design"]}            # 24 : Design seul → rouge
-    assert strokes(61) == {s["personality"]}       # 61 : Personnalité seule → noir
-    assert strokes(13) == {s["design"], s["personality"]}  # 13 : les deux → rayé
-    assert 'class="gate-13"' in svg and "stroke-dasharray" in svg
-    assert "gate-14" not in svg                    # porte inactive : aucun demi-canal coloré
+    assert strokes(47) == {s["design"]}            # 47 : Design seul
+    assert strokes(45) == {s["personality"]}       # 45 : Personnalité seule
+    assert strokes(10) == {s["design"], s["personality"]}  # 10 : les deux → rayé
+    assert 'class="gate-10"' in svg and "stroke-dasharray" in svg
+    assert "gate-1\"" not in svg                    # porte inactive : aucun demi-canal coloré
 
 
 def test_open_centers_stay_white():
-    svg = render_bodygraph(active_gates=REFERENCE_1_CAPTURE, skin="classique", show_planets=False, show_caption=False)
-    for center in ("spleen", "heart", "solar_plexus"):
+    svg = render_bodygraph(active_gates=FICTIF_1_GATES, skin="classique", show_planets=False, show_caption=False)
+    for center in ("throat", "solar_plexus", "root"):
         assert re.search(rf'id="hd[0-9a-f]{{8}}-center-{center}" d="[^"]+" fill="#ffffff"', svg)
 
 
-def test_engine_matches_reference_1_capture():
-    """Contrôle croisé : la référence 1 calculée par le moteur correspond à la capture HumanDesignApp."""
+def test_engine_matches_fictif_1():
     from hd.chart import build_chart
     from hd.timeutil import local_to_utc
 
-    from .test_reference import REFERENCE_1
+    from .test_reference import FICTIF_1
 
-    c = build_chart(local_to_utc(REFERENCE_1["local"], REFERENCE_1["tz"]).utc)
-    assert (c.type, c.authority, c.profile) == ("Generator", "Sacral", "5/1")
-    assert c.cross.startswith("Left Angle Cross of the Plane")
-    assert {g: sorted(s) for g, s in c.active_gates.items()} == {g: sorted(s) for g, s in REFERENCE_1_CAPTURE.items()}
+    c = build_chart(local_to_utc(FICTIF_1["local"], FICTIF_1["tz"]).utc)
+    assert {g: sorted(s) for g, s in c.active_gates.items()} == {g: sorted(s) for g, s in FICTIF_1_GATES.items()}

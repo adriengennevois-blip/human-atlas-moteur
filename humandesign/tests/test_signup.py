@@ -9,14 +9,14 @@
 
 from hd.signup import signup_result
 
-from .test_reference import REFERENCE_1, REFERENCE_3, REFERENCE_4, REFERENCE_5, REFERENCE_2
+from .test_reference import FICTIF_1, FICTIF_3, FICTIF_4, FICTIF_5, FICTIF_2
 
 import pytest
 
 
 @pytest.mark.parametrize(
-    "ref", [REFERENCE_1, REFERENCE_2, REFERENCE_3, REFERENCE_4, REFERENCE_5],
-    ids=["reference-1", "reference-2", "reference-3", "reference-4", "reference-5"],
+    "ref", [FICTIF_1, FICTIF_2, FICTIF_3, FICTIF_4, FICTIF_5],
+    ids=["fictif-1", "fictif-2", "fictif-3", "fictif-4", "fictif-5"],
 )
 def test_signup_result_matches_engine(ref):
     d = ref["local"]
@@ -33,25 +33,25 @@ def test_signup_result_matches_engine(ref):
 
 
 def test_signup_result_minimal_shape():
-    r = signup_result(date="1900-01-01", time="08:26", tz="Europe/Paris")
+    r = signup_result(date="1985-12-12", time="11:45", tz="Europe/Paris")
     assert set(r) == {
         "type", "type_fr", "authority", "authority_fr",
         "profile", "profile_label", "birth_utc", "time_warning",
     }
     assert r["type"] == "Generator"
-    assert r["profile_label"].startswith("5/1 (")
+    assert r["profile_label"].startswith("4/6 (")
 
 
 def test_signup_result_with_birth_utc():
     from datetime import datetime, timezone
 
-    r = signup_result(birth_utc=datetime(1900, 1, 1))
+    r = signup_result(birth_utc=datetime(1985, 12, 12, 10, 45, tzinfo=timezone.utc))
     assert r["type"] == "Generator"
 
 
 def test_signup_result_requires_enough_input():
     with pytest.raises(Exception):
-        signup_result(date="1900-01-01")
+        signup_result(date="1985-12-12")
 
 
 def test_manifesting_generator_label_is_m_generateur():
@@ -60,8 +60,8 @@ def test_manifesting_generator_label_is_m_generateur():
     from hd.chart import build_chart
     from hd.timeutil import local_to_utc
 
-    d = REFERENCE_3["local"]
-    r = signup_result(date=d.strftime("%Y-%m-%d"), time=d.strftime("%H:%M"), tz=REFERENCE_3["tz"])
+    d = FICTIF_3["local"]
+    r = signup_result(date=d.strftime("%Y-%m-%d"), time=d.strftime("%H:%M"), tz=FICTIF_3["tz"])
     assert (r["type"], r["type_fr"]) == ("Manifesting Generator", "M-Générateur")
-    c = build_chart(local_to_utc(d, REFERENCE_3["tz"]).utc)
-    assert summary_sentence(c) == "M-Générateur à autorité émotionnelle (Plexus solaire), profil 3/5 (Martyr / Hérétique)"
+    c = build_chart(local_to_utc(d, FICTIF_3["tz"]).utc)
+    assert summary_sentence(c) == "M-Générateur à autorité sacrale, profil 5/1 (Hérétique / Investigateur)"

@@ -18,15 +18,15 @@ from hd.group import group
 from hd.timeutil import local_to_utc
 
 from .test_api import KEY, call
-from .test_reference import REFERENCE_1, REFERENCE_2, REFERENCE_3, REFERENCE_4, REFERENCE_5
+from .test_reference import FICTIF_1, FICTIF_2, FICTIF_3, FICTIF_4, FICTIF_5, api_body
 
-REFS = [REFERENCE_1, REFERENCE_2, REFERENCE_3, REFERENCE_4, REFERENCE_5]
+REFS = [FICTIF_1, FICTIF_2, FICTIF_3, FICTIF_4, FICTIF_5]
 PEOPLE = [
-    {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris", "name": "Référence 1"},
-    {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "America/New_York", "name": "Référence 2"},
-    {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris", "name": "Référence 3"},
-    {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris", "name": "Référence 4"},
-    {"date": "1900-01-01", "time": "00:00", "time_precision": "exacte", "tz": "Europe/Paris", "name": "Référence 5"},
+    api_body(FICTIF_1, name="Fictif 1"),
+    api_body(FICTIF_2, name="Fictif 2"),
+    api_body(FICTIF_3, name="Fictif 3"),
+    api_body(FICTIF_4, name="Fictif 4"),
+    api_body(FICTIF_5, name="Fictif 5"),
 ]
 
 

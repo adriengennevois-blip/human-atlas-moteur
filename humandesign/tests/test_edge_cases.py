@@ -23,7 +23,7 @@ from hd.timeutil import GeocodingUnavailable, geocode, local_to_utc
 
 @pytest.fixture(scope="module")
 def chart():
-    return build_chart(local_to_utc(datetime(1900, 1, 1), "Europe/Paris").utc)
+    return build_chart(local_to_utc(datetime(1985, 12, 12, 11, 45), "Europe/Paris").utc)
 
 
 # ---------------------------------------------------------------- frontières
