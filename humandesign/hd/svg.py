@@ -12,25 +12,16 @@ from html import escape
 
 from . import data as D
 from .chart import Chart, summary_fr
+from .themes import FICHE
 
 W, H_CHART = 1180, 1060
 
-BG = "#2a2a2c"
-BODY = "#3b3b3e"
-EMPTY = "#1b1b1c"
-RED = "#c9554f"
-WHITE = "#f4f4f4"
-MUTED = "#8f8f93"
-TEXT = "#e9e9ea"
-
-CENTER_COLORS = {
-    "head": "#f6f0a6", "ajna": "#6e9e90", "throat": "#5b4642", "g": "#f6f0a6",
-    "heart": RED, "sacral": RED, "solar_plexus": "#5b4642", "spleen": "#5b4642",
-    "root": "#5b4642",
-}
-
-LABEL_ON_DEFINED = {"head": "#77724f", "g": "#77724f", "ajna": "#dcebe6",
-                    "heart": "#f1d6d4", "sacral": "#f1d6d4"}
+# Couleurs : hd/themes.py (FICHE).
+BG, BODY, EMPTY = FICHE["bg"], FICHE["body"], FICHE["empty"]
+RED, WHITE, MUTED, TEXT = FICHE["red"], FICHE["white"], FICHE["muted"], FICHE["text"]
+CENTER_COLORS = FICHE["centers"]
+LABEL_ON_DEFINED = FICHE["label_on_defined"]
+PERSONALITY_BAR, GATE_BADGE, GATE_BADGE_TEXT = FICHE["personality_bar"], FICHE["gate_badge"], FICHE["gate_badge_text"]
 
 CENTER_SHAPES = {
     "head": ("poly", [(588, 64), (656, 176), (520, 176)]),
@@ -152,7 +143,7 @@ def _planet_column(acts, side):
     out = [
         f'<text x="{x_title}" y="90" fill="{TEXT}" font-size="21" text-anchor="middle">'
         f'{"Design" if side == "design" else "Personnalité"}</text>',
-        f'<rect x="{x_title - 76}" y="102" width="152" height="3" fill="{RED if side == "design" else "#555"}"/>',
+        f'<rect x="{x_title - 76}" y="102" width="152" height="3" fill="{RED if side == "design" else PERSONALITY_BAR}"/>',
     ]
     for i, p in enumerate(D.PLANETS):
         a = acts[p]
@@ -208,8 +199,8 @@ def render_svg(c: Chart) -> str:
 
     for gate, (x, y) in GATE_POS.items():
         if gate in c.active_gates:
-            o.append(f'<circle cx="{x}" cy="{y}" r="11.5" fill="#101010"/>')
-            o.append(f'<text x="{x}" y="{y + 4.5}" fill="#fff" font-size="12.5" font-weight="700" '
+            o.append(f'<circle cx="{x}" cy="{y}" r="11.5" fill="{GATE_BADGE}"/>')
+            o.append(f'<text x="{x}" y="{y + 4.5}" fill="{GATE_BADGE_TEXT}" font-size="12.5" font-weight="700" '
                      f'text-anchor="middle">{gate}</text>')
         else:
             center = D.GATE_CENTER[gate]

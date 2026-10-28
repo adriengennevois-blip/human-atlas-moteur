@@ -7,7 +7,8 @@
 # publiée par la Free Software Foundation (ou, à votre choix, toute version
 # ultérieure). Il est distribué SANS AUCUNE GARANTIE. Voir le fichier LICENSE.
 
-"""Génère les cartes des 5 thèmes fictifs de test, dans les deux habillages.
+"""Génère les cartes des 5 thèmes de référence, dans les deux habillages, et la carte
+d'exemple dans les deux thèmes de marque (atlas.svg, gdh.svg).
 
     python -m exemples.generer   (depuis le dossier humandesign/)
 """
@@ -37,3 +38,13 @@ svg = render_composite(*charts, "Fictif 1", "Fictif 4", uid="composite-fictif-1-
 ElementTree.fromstring(svg)
 (here / "composite-fictif-1-4.svg").write_text(svg, encoding="utf-8")
 print(f"composite-fictif-1-4.svg  OK ({len(svg) // 1024} Ko)")
+
+# Les deux thèmes de marque, pour la même naissance (personne fictive : 1er janvier 2000, 12 h, Paris).
+from datetime import datetime  # noqa: E402
+
+c = build_chart(local_to_utc(datetime(2000, 1, 1, 12, 0), "Europe/Paris").utc)
+for theme in ("atlas", "gdh"):
+    svg = render_bodygraph(c, theme=theme, name="Exemple", uid="exemple")
+    ElementTree.fromstring(svg)
+    (here / f"{theme}.svg").write_text(svg, encoding="utf-8")
+    print(f"{theme}.svg  OK ({len(svg) // 1024} Ko)")

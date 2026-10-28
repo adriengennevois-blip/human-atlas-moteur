@@ -249,3 +249,48 @@ def test_base_window_matches_the_planet_speed(chart1, stab1, side, planet):
     _, rate = P._state(julian_day(chart1.birth_utc), side, planet, 0.0)
     expected = D.BASE_ARC / abs(rate) * 1440
     assert abs((s["before"] + s["after"]) - expected) < 0.05 * expected + 0.2
+
+
+# ---------------------------------------------------------------- noms des variables
+
+def test_variable_name_tables_are_complete():
+    for name in ("determination", "environment", "motivation", "perspective"):
+        assert set(D.VARIABLE_COLOR_NAMES[name]) == set(range(1, 7))
+    for name in ("determination", "environment"):
+        assert set(D.VARIABLE_COLOR_SIDES[name]) == set(range(1, 7))
+    assert set(D.TONE_SENSES) == set(range(1, 7))
+    assert all(D.OPPOSITE_COLOR[D.OPPOSITE_COLOR[c]] == c != D.OPPOSITE_COLOR[c] for c in range(1, 7))
+
+
+def test_variable_names_of_fictif_1(chart1):
+    """Non-régression (thème fictif 1)."""
+    v = P.variables(chart1)
+    fr = lambda x: x["fr"]
+    assert (fr(v["determination"]["color_name"]), fr(v["determination"]["color_side"]), fr(v["determination"]["tone_name"])) == \
+        ("Son", "Aigu", "Goût")
+    assert (fr(v["environment"]["color_name"]), fr(v["environment"]["color_side"])) == ("Montagnes", "Passif")
+    assert (fr(v["motivation"]["color_name"]), fr(v["motivation"]["opposite_color_name"])) == ("Besoin", "Peur")
+    assert (v["perspective"]["color_name"]["en"], v["perspective"]["opposite_color_name"]["en"]) == ("Personal", "Power")
+    assert "color_side" not in v["motivation"] and "opposite_color_name" not in v["determination"]
+
+
+def test_variable_side_label_follows_the_tone():
+    assert P.variable_names("determination", 6, 3)["color_side"]["fr"] == "Directe"
+    assert P.variable_names("determination", 6, 4)["color_side"]["fr"] == "Indirecte"
+
+
+@pytest.mark.skipif(not PRIVATE.exists(), reason="tests/references_privees.json absent (fichier local, ignoré par git)")
+def test_variable_names_match_the_private_reference():
+    """Référence privée B (HumanDesignApp) : Lumière Directe, Goût, Grottes Mêlé,
+    Probabilité/Possibilité, Culpabilité."""
+    refs = [r for r in json.loads(PRIVATE.read_text(encoding="utf-8"))["references"] if "libelles_appli" in r]
+    assert refs
+    for ref in refs:
+        c = build_chart(local_to_utc(datetime.fromisoformat(ref["local"]), ref["tz"]).utc)
+        v = P.variables(c)
+        d, e, m, p = (v[k] for k in ("determination", "environment", "motivation", "perspective"))
+        assert f'{d["color_name"]["fr"]} {d["color_side"]["fr"]}' == ref["variables_fr"]["determination"]
+        assert d["tone_name"]["fr"] == ref["variables_fr"]["sens"]
+        assert f'{e["color_name"]["fr"]} {e["color_side"]["fr"]}' == ref["variables_fr"]["environment"]
+        assert f'{p["color_name"]["fr"]}/{p["opposite_color_name"]["fr"]}' == ref["variables_fr"]["perspective"]
+        assert m["color_name"]["fr"] == ref["variables_fr"]["motivation"]

@@ -157,3 +157,39 @@ VARIABLE_LABELS = {
     "personality_sun": "Motivation",
     "personality_node": "Perspective",
 }
+
+# Noms des couleurs, des tons et des sous-libellés des variables (tableau validé le
+# 2026-10-28). Chaque nom : (français, anglais). Sous-libellés : (gauche, droite), le ton
+# décidant du côté (1 à 3 gauche, 4 à 6 droite). Motivation et Perspective n'ont pas de
+# sous-libellé : chaque couleur y est liée à une couleur opposée (1↔4, 2↔5, 3↔6).
+VARIABLE_COLOR_NAMES = {
+    "determination": {1: ("Appétit", "Appetite"), 2: ("Goût", "Taste"), 3: ("Soif", "Thirst"),
+                      4: ("Toucher", "Touch"), 5: ("Son", "Sound"), 6: ("Lumière", "Light")},
+    "environment": {1: ("Grottes", "Caves"), 2: ("Marchés", "Markets"), 3: ("Cuisines", "Kitchens"),
+                    4: ("Montagnes", "Mountains"), 5: ("Vallées", "Valleys"), 6: ("Rivages", "Shores")},
+    "motivation": {1: ("Peur", "Fear"), 2: ("Espoir", "Hope"), 3: ("Désir", "Desire"),
+                   4: ("Besoin", "Need"), 5: ("Culpabilité", "Guilt"), 6: ("Innocence", "Innocence")},
+    "perspective": {1: ("Survie", "Survival"), 2: ("Possibilité", "Possibility"), 3: ("Pouvoir", "Power"),
+                    4: ("Envie", "Wanting"), 5: ("Probabilité", "Probability"), 6: ("Personnel", "Personal")},
+}
+VARIABLE_COLOR_SIDES = {
+    "determination": {
+        1: (("Consécutif", "Consecutive"), ("Alterné", "Alternating")),
+        2: (("Ouvert", "Open"), ("Fermé", "Closed")),
+        3: (("Chaud", "Hot"), ("Froid", "Cold")),
+        4: (("Calme", "Calm"), ("Nerveux", "Nervous")),
+        5: (("Aigu", "High"), ("Grave", "Low")),
+        6: (("Directe", "Direct"), ("Indirecte", "Indirect")),
+    },
+    "environment": {
+        1: (("Sélectif", "Selective"), ("Mêlé", "Blending")),
+        2: (("Interne", "Internal"), ("Externe", "External")),
+        3: (("Humide", "Wet"), ("Sec", "Dry")),
+        4: (("Actif", "Active"), ("Passif", "Passive")),
+        5: (("Étroite", "Narrow"), ("Large", "Wide")),
+        6: (("Naturel", "Natural"), ("Artificiel", "Artificial")),
+    },
+}
+OPPOSITE_COLOR = {1: 4, 2: 5, 3: 6, 4: 1, 5: 2, 6: 3}
+TONE_SENSES = {1: ("Odorat", "Smell"), 2: ("Goût", "Taste"), 3: ("Vision extérieure", "Outer Vision"),
+               4: ("Vision intérieure", "Inner Vision"), 5: ("Ressenti", "Feeling"), 6: ("Toucher", "Touch")}
