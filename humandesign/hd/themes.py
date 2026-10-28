@@ -121,7 +121,7 @@ GDH_MARBLE = Marble("marbre", color=(0.55, 0.50, 0.42), opacity=0.12)
 GDH = {
     **ATLAS,
     "id_prefix": "gdh",
-    "design": Gradient("or", ((0, "#C9A45C"), (1, "#8C6A2E"))),
+    "design": Gradient("or", ((0, "#8C6A2E"), (1, "#6B5020"))),  # or bronze, assez foncé pour des numéros ivoire
     "personality": Gradient("nuit", ((0, "#2B3550"), (1, "#141A2B"))),
     "design_text": "#8C6A2E", "personality_text": "#2B3550",
     "both": "stripes", "both_dash": "3.2 3.2",
