@@ -18,6 +18,7 @@ navigateur : la clé doit rester secrète).
   POST /v1/transit  → transits d'un instant (+ superposition avec un thème natal)
   GET  /v1/transits/day?date=AAAA-MM-JJ&tz=Europe/Paris → changements de porte et de ligne du jour
   POST /v1/return   → retours (solaire, Saturne, Chiron, opposition d'Uranus) d'une année
+  POST /v1/group    → groupe de 3 à 5 personnes (qui apporte quoi, paires ; Penta en attente)
   POST /v1/composite → composite de deux personnes (connexions canal par canal, + SVG)
   POST /v1/chart    → thème calculé (+ SVG du bodygraph ; « details »: true ajoute
                       couleur/ton/base, sensibilité à l'heure, variables, précision)
@@ -50,6 +51,7 @@ from hd import precision as P
 from hd.bodygraph import SKINS, render_bodygraph, summary_sentence, validate_template
 from hd.chart import build_chart
 from hd.composite import composite, render_composite
+from hd.group import MAX_PEOPLE, MIN_PEOPLE, group
 from hd.returns import RETURNS, find_returns, years_with_returns
 from hd.transit import day_changes, overlay, transit
 from hd.signup import _profile_label
@@ -299,16 +301,51 @@ def parse_composite(body) -> dict:
     return {"people": parsed, "include_svg": include_svg}
 
 
+GROUP_FIELDS = {"people"}
+
+
+def parse_group(body) -> dict:
+    """De 3 à 5 personnes, chacune au format de /v1/chart (sans « include_svg », « skin », « details »)."""
+    if not isinstance(body, dict):
+        raise _bad("invalid_json", "le corps doit être un objet JSON")
+    unknown = set(body) - GROUP_FIELDS
+    if unknown:
+        raise _bad("unknown_field", f"champ(s) inconnu(s) : {', '.join(sorted(unknown))}")
+    people = body.get("people")
+    if not isinstance(people, list) or not MIN_PEOPLE <= len(people) <= MAX_PEOPLE:
+        raise _bad("invalid_field", f"« people » doit contenir de {MIN_PEOPLE} à {MAX_PEOPLE} personnes")
+    return {"people": [_parse_person(person, i) for i, person in enumerate(people, 1)]}
+
+
+def compute_group(req: dict) -> dict:
+    results = [chart_for(p) for p in req["people"]]
+    return {
+        "people": [_person_summary(p, c, place, warning) for p, (c, place, warning) in zip(req["people"], results)],
+        "group": group([c for c, _, _ in results]),
+    }
+
+
+def _parse_person(person, i: int) -> dict:
+    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details"}:
+        raise _bad("unknown_field", f"personne {i} : « include_svg », « skin » et « details » ne s'appliquent pas ici")
+    try:
+        return parse_request(person)
+    except ApiError as e:
+        raise ApiError(e.status, e.code, f"personne {i} : {e.message}") from None
+
+
+def _person_summary(p, c, place, warning) -> dict:
+    return {"name": p["name"] or None, "type": c.type, "type_fr": D.TYPES_FR[c.type][0],
+            "authority": c.authority, "profile": c.profile,
+            "channels": [f"{a}-{b}" for a, b in c.channels], "defined_centers": c.defined_centers,
+            "place_resolved": place, "time_warning": warning}
+
+
 def compute_composite(req: dict) -> dict:
     results = [chart_for(p) for p in req["people"]]
     (ca, _, _), (cb, _, _) = results
     out = {
-        "people": [{
-            "name": p["name"] or None, "type": c.type, "type_fr": D.TYPES_FR[c.type][0],
-            "authority": c.authority, "profile": c.profile,
-            "channels": [f"{a}-{b}" for a, b in c.channels], "defined_centers": c.defined_centers,
-            "place_resolved": place, "time_warning": warning,
-        } for p, (c, place, warning) in zip(req["people"], results)],
+        "people": [_person_summary(p, c, place, warning) for p, (c, place, warning) in zip(req["people"], results)],
         "composite": composite(ca, cb),
     }
     if req["include_svg"]:
@@ -529,7 +566,8 @@ def application(environ, start_response):
             return _error(start_response, ApiError("500 Internal Server Error", "internal_error", "erreur interne du moteur"))
 
     routes = {"/v1/chart": (parse_request, compute), "/v1/composite": (parse_composite, compute_composite),
-              "/v1/transit": (parse_transit, compute_transit), "/v1/return": (parse_return, compute_return)}
+              "/v1/transit": (parse_transit, compute_transit), "/v1/return": (parse_return, compute_return),
+              "/v1/group": (parse_group, compute_group)}
     if path not in routes:
         return _error(start_response, ApiError("404 Not Found", "not_found", "adresse inconnue"))
     parse, run = routes[path]

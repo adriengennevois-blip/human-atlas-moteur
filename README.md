@@ -71,6 +71,7 @@ Pour la mise en ligne, voir [humandesign/DEPLOIEMENT.md](humandesign/DEPLOIEMENT
 | `POST /v1/transit` | transits d'un instant (par défaut : maintenant), et leur superposition avec un thème natal. Exige la même clé |
 | `GET /v1/transits/day?date=AAAA-MM-JJ&tz=Europe/Paris` | heure de chaque changement de porte et de ligne de la journée, à la minute. Exige la même clé |
 | `POST /v1/return` | retours d'une année : solaire, de Saturne, de Chiron, opposition d'Uranus, avec le thème de chaque passage. Exige la même clé |
+| `POST /v1/group` | groupe de 3 à 5 personnes : canaux et centres du groupe, qui apporte quoi, connexions deux à deux. Exige la même clé |
 
 **Exemple d'appel** (personne fictive) :
 
@@ -130,6 +131,8 @@ La réponse donne aussi le type et la définition de la composite, ses centres d
 **Vue du jour (`/v1/transits/day`).** Pour chaque corps : sa porte.ligne à 00:00 (heure locale), puis chaque changement de porte ou de ligne avec son heure locale à la minute (`time`) et son instant UTC exact. Les heures sont trouvées par recherche de racine sur la longitude. Une journée de changement d'heure dure 23 h ou 25 h. Cette route ne contient aucune donnée personnelle : une journée calculée est gardée en mémoire et resservie. Elle accepte aussi une clé dédiée, `TRANSITS_API_KEY` (facultative, au moins 32 caractères), qui n'ouvre que cette route : on peut la confier à un autre site sans donner accès aux calculs de naissance.
 
 **Retours (`/v1/return`).** Corps : `chart` (le thème natal, au format de `/v1/chart`), `kind` (`solar`, `saturn`, `chiron` ou `uranus_opposition`) et `year`. La réponse liste tous les passages du retour qui a lieu cette année-là : une planète rétrograde peut repasser trois fois sur le même point, et un retour peut déborder sur l'année voisine. Pour chaque passage : l'instant exact (UTC), si la planète est rétrograde, l'âge, le thème complet de cet instant (même règle qu'une naissance : le Design est l'instant où le Soleil était 88° avant) et sa superposition avec le thème natal. Si l'année n'a pas de passage, `years_with_returns` indique les bonnes années. Les passages dans l'année qui suit la naissance ne sont pas des retours et sont ignorés.
+
+**Groupes (`/v1/group`).** Corps : `people`, de 3 à 5 personnes au format de `/v1/chart` (numérotées à partir de 1, dans l'ordre). Pour chaque canal du groupe : les personnes qui apportent chacune de ses portes (`gates`), celles qui ont le canal complet (`holders`), et s'il n'existe qu'ensemble (`only_together`). La réponse donne aussi les centres et canaux qui n'existent qu'ensemble, et la composite de chaque paire (`pairs`, comme `/v1/composite`). La Penta n'est pas encore calculée : `penta.status` vaut `pending_rules` en attendant ses règles.
 
 **Vérifications.** Les portes, lignes et flèches sont comparées à des applis de référence (mybodygraph, HumanDesignApp). Les couleurs et tons des variables ont été contrôlés sur un thème. **Les bases ne sont vérifiées par aucune appli de référence** (aucune ne les affiche) : seule leur cohérence interne est testée (les 69 120 bases du cercle se suivent, et basculent avec le ton, la couleur, la ligne et la porte aux frontières).
 
