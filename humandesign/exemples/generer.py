@@ -28,3 +28,12 @@ for i, ref in enumerate([REFERENCE_1, REFERENCE_2, REFERENCE_3, REFERENCE_4, REF
         ElementTree.fromstring(svg)  # lève une erreur si le XML est invalide
         (here / f"{slug}.svg").write_text(svg, encoding="utf-8")
         print(f"{slug}.svg  OK ({len(svg) // 1024} Ko)")
+
+# Composite des références 1 et 4 (habillage « composite »).
+from hd.composite import render_composite  # noqa: E402
+
+charts = [build_chart(local_to_utc(r["local"], r["tz"]).utc) for r in (REFERENCE_1, REFERENCE_4)]
+svg = render_composite(*charts, "Référence 1", "Référence 4", uid="composite-1-4")
+ElementTree.fromstring(svg)
+(here / "composite-1-4.svg").write_text(svg, encoding="utf-8")
+print(f"composite-1-4.svg  OK ({len(svg) // 1024} Ko)")

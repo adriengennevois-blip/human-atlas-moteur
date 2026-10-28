@@ -403,6 +403,14 @@ SKINS = {
     },
 }
 
+# Habillages réservés à des cartes particulières (pas proposés pour un thème individuel).
+# « composite » : celui d'Human Atlas, une couleur par personne à la place de Design /
+# Personnalité (personne A : bleu canard, personne B : framboise). Même gabarit.
+EXTRA_SKINS = {
+    "composite": {**SKINS["atlas"], "design": "#13777b", "personality": "#c2416b",
+                  "legend": False, "name_gradient": False},
+}
+
 FONT = "Inter, 'Helvetica Neue', Arial, sans-serif"
 SYMBOLS = "'DejaVu Sans', 'Segoe UI Symbol', 'Apple Symbols', sans-serif"  # glyphes des planètes
 
@@ -610,7 +618,7 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", name=None,
         active_gates = chart.active_gates
     if active_gates is None:
         raise ValueError("fournir chart ou active_gates")
-    s = SKINS[skin]
+    s = SKINS[skin] if skin in SKINS else EXTRA_SKINS[skin]
     active, channels, defined = derive(active_gates)
     if chart is not None:  # garde-fou : le dessin doit dire la même chose que le moteur
         assert sorted(_channel_key(*c) for c in channels) == sorted(_channel_key(*c) for c in chart.channels)

@@ -15,6 +15,7 @@ navigateur : la clé doit rester secrète).
 
   GET  /            → « ok »
   GET  /source      → adresse du code source public (obligation de l'AGPL)
+  POST /v1/composite → composite de deux personnes (connexions canal par canal, + SVG)
   POST /v1/chart    → thème calculé (+ SVG du bodygraph ; « details »: true ajoute
                       couleur/ton/base, sensibilité à l'heure, variables, précision)
 
@@ -42,6 +43,7 @@ from hd import data as D
 from hd import precision as P
 from hd.bodygraph import SKINS, render_bodygraph, summary_sentence, validate_template
 from hd.chart import build_chart
+from hd.composite import composite, render_composite
 from hd.signup import _profile_label
 from hd.timeutil import GeocodingUnavailable, geocode, local_to_utc, timezone_at
 
@@ -212,7 +214,8 @@ def details(c) -> dict:
     }
 
 
-def compute(req: dict) -> dict:
+def chart_for(req: dict):
+    """Thème d'une personne validée par parse_request : (thème, lieu retenu, avertissement)."""
     place = resolve_place(req)
     rt = local_to_utc(req["local"], place["tz"])
     warnings = []
@@ -222,8 +225,11 @@ def compute(req: dict) -> dict:
         warnings.append("Heure approximative : le profil, la croix ou certaines portes peuvent changer.")
     if place.get("ambiguous"):
         warnings.append("Plusieurs lieux portent ce nom : vérifier le lieu retenu.")
+    return build_chart(rt.utc, req["name"]), place, " ".join(warnings) or None
 
-    c = build_chart(rt.utc, req["name"])
+
+def compute(req: dict) -> dict:
+    c, place, warning = chart_for(req)
     out = {
         "type": c.type,
         "type_fr": D.TYPES_FR[c.type][0],
@@ -238,7 +244,7 @@ def compute(req: dict) -> dict:
         "active_gates": {str(g): sides for g, sides in c.active_gates.items()},
         "summary": summary_sentence(c),
         "place_resolved": place,
-        "time_warning": " ".join(warnings) or None,
+        "time_warning": warning,
         "details": details(c),
     }
     if req["include_svg"]:
@@ -256,6 +262,50 @@ def premium_details(c, time_precision: str) -> dict:
             for side in ("personality", "design")}
     return {"activations_details": acts, "variables": P.variables(c),
             "precision": P.precision(c, time_precision, stab)}
+
+
+COMPOSITE_FIELDS = {"people", "include_svg"}
+
+
+def parse_composite(body) -> dict:
+    """Deux personnes, chacune au format de /v1/chart (sans « include_svg », « skin », « details »)."""
+    if not isinstance(body, dict):
+        raise _bad("invalid_json", "le corps doit être un objet JSON")
+    unknown = set(body) - COMPOSITE_FIELDS
+    if unknown:
+        raise _bad("unknown_field", f"champ(s) inconnu(s) : {', '.join(sorted(unknown))}")
+    people = body.get("people")
+    if not isinstance(people, list) or len(people) != 2:
+        raise _bad("invalid_field", "« people » doit contenir exactement 2 personnes")
+    parsed = []
+    for i, person in enumerate(people, 1):
+        if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details"}:
+            raise _bad("unknown_field", f"personne {i} : « include_svg », « skin » et « details » se règlent pour toute la composite")
+        try:
+            parsed.append(parse_request(person))
+        except ApiError as e:
+            raise ApiError(e.status, e.code, f"personne {i} : {e.message}") from None
+    include_svg = body.get("include_svg", True)
+    if not isinstance(include_svg, bool):
+        raise _bad("invalid_field", "« include_svg » doit valoir true ou false")
+    return {"people": parsed, "include_svg": include_svg}
+
+
+def compute_composite(req: dict) -> dict:
+    results = [chart_for(p) for p in req["people"]]
+    (ca, _, _), (cb, _, _) = results
+    out = {
+        "people": [{
+            "name": p["name"] or None, "type": c.type, "type_fr": D.TYPES_FR[c.type][0],
+            "authority": c.authority, "profile": c.profile,
+            "channels": [f"{a}-{b}" for a, b in c.channels], "defined_centers": c.defined_centers,
+            "place_resolved": place, "time_warning": warning,
+        } for p, (c, place, warning) in zip(req["people"], results)],
+        "composite": composite(ca, cb),
+    }
+    if req["include_svg"]:
+        out["svg"] = render_composite(ca, cb, req["people"][0]["name"], req["people"][1]["name"])
+    return out
 
 
 # ---------------------------------------------------------------- WSGI
@@ -319,8 +369,10 @@ def application(environ, start_response):
                                   ("Content-Length", str(len(body)))])
         return [body]
 
-    if path != "/v1/chart":
+    routes = {"/v1/chart": (parse_request, compute), "/v1/composite": (parse_composite, compute_composite)}
+    if path not in routes:
         return _error(start_response, ApiError("404 Not Found", "not_found", "adresse inconnue"))
+    parse, run = routes[path]
     if method != "POST":
         return _error(start_response, ApiError("405 Method Not Allowed", "method_not_allowed", "POST uniquement"))
     if not _authorized(environ):
@@ -332,7 +384,7 @@ def application(environ, start_response):
             body = json.loads(raw)
         except (UnicodeDecodeError, json.JSONDecodeError):
             raise _bad("invalid_json", "le corps n'est pas un JSON valide") from None
-        return _json(start_response, "200 OK", compute(parse_request(body)))
+        return _json(start_response, "200 OK", run(parse(body)))
     except ApiError as e:
         return _error(start_response, e)
     except Exception as e:

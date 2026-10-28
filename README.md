@@ -67,6 +67,7 @@ Pour la mise en ligne, voir [humandesign/DEPLOIEMENT.md](humandesign/DEPLOIEMENT
 | `GET /` | renvoie `ok` (le service fonctionne) |
 | `GET /source` | renvoie l'adresse de ce dépôt (code source du service, obligation de l'AGPL) |
 | `POST /v1/chart` | calcule une carte. Exige l'en-tête `Authorization: Bearer <clé>` |
+| `POST /v1/composite` | composite de deux personnes : chaque canal et son type de connexion, centres et type de l'ensemble, carte SVG. Exige la même clé |
 
 **Exemple d'appel** (personne fictive) :
 
@@ -111,6 +112,15 @@ Le détail des champs d'entrée et de sortie, et des codes d'erreur, se trouve d
 - `precision` : `fiable`, `à confirmer` ou `incertain`, selon que le thème (type, autorité, profil, croix, canaux) ou les variables peuvent changer dans la marge de l'heure déclarée (±5 min pour une heure exacte, ±60 min pour une heure approximative).
 
 Ce calcul prend environ 2 secondes : ne le demander que lorsqu'il sert.
+
+**Composite (`/v1/composite`).** Le corps contient `people` (exactement 2 personnes, chacune au format de `/v1/chart`, sans `include_svg`, `skin` ni `details`) et, au besoin, `include_svg`. Pour chaque canal présent dans la composite, `connection` vaut :
+
+- `electromagnetic` (électromagnétique) : chacun a une porte du canal ;
+- `compromise` (compromis) : l'un a le canal complet (`holder`), l'autre une seule de ses portes ;
+- `dominance` : l'un a le canal complet (`holder`), l'autre aucune de ses portes ;
+- `companionship` (compagnonnage) : tous les deux ont le canal.
+
+La réponse donne aussi le type et la définition de la composite, ses centres définis, les centres et les canaux qui n'existent qu'à deux (`centers_only_together`, `channels_only_together`), et un résumé de chaque personne. La carte utilise l'habillage `composite` (bleu canard pour la première personne, framboise pour la seconde), réservé à cette route.
 
 **Vérifications.** Les portes, lignes et flèches sont comparées à des applis de référence (mybodygraph, HumanDesignApp). Les couleurs et tons des variables ont été contrôlés sur un thème. **Les bases ne sont vérifiées par aucune appli de référence** (aucune ne les affiche) : seule leur cohérence interne est testée (les 69 120 bases du cercle se suivent, et basculent avec le ton, la couleur, la ligne et la porte aux frontières).
 

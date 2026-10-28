@@ -93,21 +93,10 @@ def _connected(a, b, edges):
     return any(a in comp and b in comp for comp in _components({x for e in edges for x in e}, edges))
 
 
-def build_chart(birth_utc: datetime, name: str = "", meta: dict | None = None) -> Chart:
-    jd_p = julian_day(birth_utc)
-    jd_d = design_jd(jd_p)
-    pos_p, pos_d = positions(jd_p), positions(jd_d)
-    pers = {p: activation(p, pos_p[p]) for p in D.PLANETS}
-    des = {p: activation(p, pos_d[p]) for p in D.PLANETS}
-    everything = list(pers.values()) + list(des.values())
-    for a in everything:
-        a.fixing = fixing(a.planet, a, everything)
-
-    active = {}
-    for side, acts in (("personality", pers), ("design", des)):
-        for a in acts.values():
-            active.setdefault(a.gate, set()).add(side)
-
+def analyse(active_gates) -> tuple[list, list, str, str, int]:
+    """Canaux, centres définis, type, autorité et définition d'un ensemble de portes actives
+    (un thème, ou plusieurs thèmes réunis pour une composite)."""
+    active = set(active_gates)
     channels = [(a, b) for a, b in D.CHANNELS if a in active and b in active]
     edges = [(D.GATE_CENTER[a], D.GATE_CENTER[b]) for a, b in channels]
     defined = sorted({c for e in edges for c in e}, key=list(D.CENTERS).index)
@@ -138,6 +127,25 @@ def build_chart(birth_utc: datetime, name: str = "", meta: dict | None = None) -
         authority = "Lunar"
 
     definition = len(_components(set(defined), edges))
+    return channels, defined, ctype, authority, definition
+
+
+def build_chart(birth_utc: datetime, name: str = "", meta: dict | None = None) -> Chart:
+    jd_p = julian_day(birth_utc)
+    jd_d = design_jd(jd_p)
+    pos_p, pos_d = positions(jd_p), positions(jd_d)
+    pers = {p: activation(p, pos_p[p]) for p in D.PLANETS}
+    des = {p: activation(p, pos_d[p]) for p in D.PLANETS}
+    everything = list(pers.values()) + list(des.values())
+    for a in everything:
+        a.fixing = fixing(a.planet, a, everything)
+
+    active = {}
+    for side, acts in (("personality", pers), ("design", des)):
+        for a in acts.values():
+            active.setdefault(a.gate, set()).add(side)
+
+    channels, defined, ctype, authority, definition = analyse(active)
 
     pl, dl = pers["sun"].line, des["sun"].line
     profile = f"{pl}/{dl}"
