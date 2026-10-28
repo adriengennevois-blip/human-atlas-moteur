@@ -204,9 +204,22 @@ def test_transit_requires_the_key():
     assert code == 401
 
 
-# ---------------------------------------------------------------- en attente de référence
+# ---------------------------------------------------------------- référence HumanDesignApp
 
-@pytest.mark.skip(reason="en attente de référence : transits d'une date donnée (porte.ligne des 13 corps) "
-                         "et heures de changement relevées dans une appli de référence")
-def test_transits_match_reference_app():
+# « Current Transits », HumanDesignApp 5.8.7, 28 octobre 2026 à 21:48 (heure de Paris).
+HDA_2026_10_28 = {"sun": "28.4", "earth": "27.4", "moon": "35.1", "north_node": "30.3▲", "south_node": "29.3",
+                  "mercury": "43.1", "venus": "50.2▼", "mars": "7.5", "jupiter": "4.6", "saturn": "17.6",
+                  "uranus": "20.5▼", "neptune": "25.5", "pluto": "41.2"}
+
+
+def test_transits_match_humandesignapp():
+    r = transit(datetime(2026, 10, 28, 20, 48, tzinfo=timezone.utc))
+    assert {p: a["label"] for p, a in r["activations"].items()} == HDA_2026_10_28
+    assert r["channels"] == ["27-50", "30-41"]                      # Preservation, Recognition
+    assert set(r["defined_centers"]) == {"spleen", "sacral", "solar_plexus", "root"}
+
+
+@pytest.mark.skip(reason="en attente de référence : heures de changement de porte et de ligne d'une journée "
+                         "relevées dans une appli de référence (curseur de la vue « 24 hours »)")
+def test_day_view_matches_reference_app():
     raise NotImplementedError

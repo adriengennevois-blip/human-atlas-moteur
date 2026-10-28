@@ -22,13 +22,20 @@ from zoneinfo import ZoneInfo
 from . import data as D
 from .chart import activation, analyse
 from .ephemeris import julian_day, jd_to_datetime, positions
+from .fixing import fixing
 from .precision import next_change
 
 
 def transit_activations(when_utc: datetime) -> dict:
-    """{corps: Activation} à cet instant (porte, ligne, couleur, ton, base)."""
+    """{corps: Activation} à cet instant (porte, ligne, couleur, ton, base, ▲▼★).
+    Exaltation et détriment évalués entre les planètes du transit seulement, comme
+    HumanDesignApp (vérifié sur la référence du 28 octobre 2026)."""
     pos = positions(julian_day(when_utc))
-    return {p: activation(p, pos[p]) for p in D.PLANETS}
+    acts = {p: activation(p, pos[p]) for p in D.PLANETS}
+    everything = list(acts.values())
+    for a in everything:
+        a.fixing = fixing(a.planet, a, everything)
+    return acts
 
 
 def overlay(natal, transit: dict) -> dict:
@@ -57,13 +64,16 @@ def overlay(natal, transit: dict) -> dict:
 
 def _act(a) -> dict:
     return {"gate": a.gate, "line": a.line, "color": a.color, "tone": a.tone, "base": a.base,
-            "label": f"{a.gate}.{a.line}", "longitude": round(a.longitude, 6)}
+            "fixing": a.fixing, "label": a.label, "longitude": round(a.longitude, 6)}
 
 
 def transit(when_utc: datetime, natal=None) -> dict:
     acts = transit_activations(when_utc)
+    channels, defined, *_ = analyse({a.gate for a in acts.values()})
     out = {"at_utc": when_utc.astimezone(timezone.utc).isoformat(),
-           "activations": {p: _act(a) for p, a in acts.items()}}
+           "activations": {p: _act(a) for p, a in acts.items()},
+           # ce que le transit définit à lui seul
+           "channels": [f"{x}-{y}" for x, y in channels], "defined_centers": defined}
     if natal is not None:
         out["overlay"] = overlay(natal, acts)
     return out
