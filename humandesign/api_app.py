@@ -52,6 +52,7 @@ from hd import precision as P
 from hd.bodygraph import SKINS, render_bodygraph, summary_sentence, validate_template
 from hd.chart import build_chart
 from hd.composite import composite, render_composite
+from hd.content_keys import chart_keys
 from hd.group import MAX_PEOPLE, MIN_PEOPLE, group
 from hd.returns import RETURNS, find_returns, years_with_returns
 from hd.transit import day_changes, overlay, transit
@@ -65,7 +66,7 @@ MIN_KEY_LENGTH = 32
 # Les fichiers d'éphémérides couvrent 1800-2400 ; le Design remonte ~88 jours avant.
 MIN_YEAR, MAX_YEAR = 1801, 2399
 PRECISIONS = ("exacte", "approximative", "inconnue")
-FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "include_svg", "details"}
+FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "include_svg", "details", "content_keys"}
 MAX_NAME = 60
 MAX_PLACE = 200
 
@@ -173,9 +174,13 @@ def parse_request(body) -> dict:
     want_details = body.get("details", False)
     if not isinstance(want_details, bool):
         raise _bad("invalid_field", "« details » doit valoir true ou false")
+    want_keys = body.get("content_keys", False)
+    if not isinstance(want_keys, bool):
+        raise _bad("invalid_field", "« content_keys » doit valoir true ou false")
 
     return {"local": datetime(day.year, day.month, day.day, hh, mm), "precision": precision,
-            **loc, "name": name, "skin": skin, "include_svg": include_svg, "details": want_details}
+            **loc, "name": name, "skin": skin, "include_svg": include_svg, "details": want_details,
+            "content_keys": want_keys}
 
 
 # ---------------------------------------------------------------- calcul
@@ -262,6 +267,8 @@ def compute(req: dict) -> dict:
         out["svg"] = render_bodygraph(c, skin=req["skin"], name=req["name"])
     if req.get("details"):  # option : la réponse sans elle reste identique
         out.update(premium_details(c, req["precision"]))
+    if req.get("content_keys"):  # option : clés des textes d'interprétation (textes hors dépôt)
+        out["content_keys"] = chart_keys(c)
     return out
 
 
@@ -290,7 +297,7 @@ def parse_composite(body) -> dict:
         raise _bad("invalid_field", "« people » doit contenir exactement 2 personnes")
     parsed = []
     for i, person in enumerate(people, 1):
-        if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details"}:
+        if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details", "content_keys"}:
             raise _bad("unknown_field", f"personne {i} : « include_svg », « skin » et « details » se règlent pour toute la composite")
         try:
             parsed.append(parse_request(person))
@@ -327,7 +334,7 @@ def compute_group(req: dict) -> dict:
 
 
 def _parse_person(person, i: int) -> dict:
-    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details"}:
+    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details", "content_keys"}:
         raise _bad("unknown_field", f"personne {i} : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         return parse_request(person)
@@ -380,7 +387,7 @@ def parse_transit(body) -> dict:
         raise _bad("unknown_field", f"champ(s) inconnu(s) : {', '.join(sorted(unknown))}")
     when = _instant(body["at"]) if body.get("at") is not None else datetime.now(timezone.utc)
     person = body.get("chart")
-    if person is not None and isinstance(person, dict) and set(person) & {"include_svg", "skin", "details"}:
+    if person is not None and isinstance(person, dict) and set(person) & {"include_svg", "skin", "details", "content_keys"}:
         raise _bad("unknown_field", "« chart » : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         natal = parse_request(person) if person is not None else None
@@ -423,7 +430,7 @@ def parse_return(body) -> dict:
     person = body.get("chart")
     if person is None:
         raise _bad("missing_field", "champ « chart » obligatoire (le thème natal)")
-    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details"}:
+    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "details", "content_keys"}:
         raise _bad("unknown_field", "« chart » : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         natal = parse_request(person)
