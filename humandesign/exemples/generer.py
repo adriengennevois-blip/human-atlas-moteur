@@ -8,7 +8,8 @@
 # ultérieure). Il est distribué SANS AUCUNE GARANTIE. Voir le fichier LICENSE.
 
 """Génère les cartes des 5 thèmes de référence, dans les deux habillages, et la carte
-d'exemple dans les deux thèmes de marque (atlas.svg, gdh.svg).
+d'exemple dans les deux thèmes de marque (atlas.svg, gdh.svg), avec et sans les flèches des
+variables (atlas-variables.svg, gdh-variables.svg).
 
     python -m exemples.generer   (depuis le dossier humandesign/)
 """
@@ -48,3 +49,11 @@ for theme in ("atlas", "gdh"):
     ElementTree.fromstring(svg)
     (here / f"{theme}.svg").write_text(svg, encoding="utf-8")
     print(f"{theme}.svg  OK ({len(svg) // 1024} Ko)")
+
+# Les mêmes cartes avec les quatre flèches des variables (show_variables) et leur titre (variable_labels).
+for theme in ("atlas", "gdh"):
+    svg = render_bodygraph(c, theme=theme, name="Exemple", uid="exemple",
+                           show_variables=True, variable_labels=True)
+    ElementTree.fromstring(svg)
+    (here / f"{theme}-variables.svg").write_text(svg, encoding="utf-8")
+    print(f"{theme}-variables.svg  OK ({len(svg) // 1024} Ko)")

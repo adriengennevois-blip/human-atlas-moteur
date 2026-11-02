@@ -36,6 +36,8 @@ import secrets
 from html import escape
 
 from . import data as D
+from . import variables_fr as VF
+from .precision import variables as chart_variables
 from .themes import MIN_CONTRAST, THEMES, Gradient, Marble, contrast, solid, text_on
 
 # --------------------------------------------------------------------------- gabarit
@@ -577,7 +579,7 @@ def _caption(chart, name, s, uid):
     who = name or chart.name or ""
     if who and s.get("name_gradient"):  # prénom en dégradé orange → violet (Design → Personnalité)
         out.append(f'<defs><linearGradient id="{uid}-prenom" x1="0" x2="1">'
-                   f'<stop offset="0" stop-color="{s["design_text"]}"/><stop offset="1" stop-color="{s["personality_text"]}"/>'
+                   f'<stop offset="0" stop-color="{s["name_from"]}"/><stop offset="1" stop-color="{s["name_to"]}"/>'
                    f'</linearGradient></defs>'
                    f'<text x="{cx}" y="{y}" font-family="{title}" font-style="italic" font-size="30" '
                    f'text-anchor="middle" fill="url(#{uid}-prenom)">{_xml_text(who)}</text>')
@@ -588,7 +590,7 @@ def _caption(chart, name, s, uid):
         y += 20
     if s.get("legend"):  # filet orange → violet : rappelle les deux faces de la carte
         out.append(f'<defs><linearGradient id="{uid}-filet" x1="0" x2="1">'
-                   f'<stop offset="0" stop-color="{s["design_text"]}"/><stop offset="1" stop-color="{s["personality_text"]}"/>'
+                   f'<stop offset="0" stop-color="{s["name_from"]}"/><stop offset="1" stop-color="{s["name_to"]}"/>'
                    f'</linearGradient></defs>'
                    f'<rect x="{cx - 28}" y="{y - 6}" width="56" height="2" rx="1" fill="url(#{uid}-filet)"/>')
         y += 20
@@ -614,13 +616,63 @@ def _halo(s) -> str:
             f'stroke-linejoin="round" paint-order="stroke"')
 
 
+# --------------------------------------------------------------------------- variables (flèches)
+
+# Les quatre flèches se placent de part et d'autre de la Tête, à sa hauteur (la Tête occupe
+# y = 34 à 117 dans la page) : deux à gauche (Design), deux à droite (Personnalité), l'une au-dessus
+# de l'autre. Le cadre de la carte ne change pas. La pointe suit le ton (1 à 3 : gauche, 4 à 6 : droite).
+VAR_ARROW_LEN, VAR_HEAD_LEN, VAR_SHAFT_H, VAR_HEAD_H = 38, 12, 3.4, 8   # fines (4 px avec le contour), pointe effilée
+VAR_AXIS_DX = 96                       # de l'axe du bodygraph au centre de chaque groupe
+VAR_ROW_Y, VAR_ROW_PITCH = 56, 36      # ordonnée de la 1re rangée, écart entre les deux
+VAR_LABEL_SIZE, VAR_LABEL_GAP = 8, 11  # taille du libellé, distance sous la flèche
+# Rangées (haut → bas) et colonnes (gauche = Design, droite = Personnalité).
+VAR_LAYOUT = (("determination", 0, "design"), ("environment", 1, "design"),
+              ("motivation", 0, "personality"), ("perspective", 1, "personality"))
+
+
+def _arrow_points(cx, cy, orient):
+    """Sommets de la flèche (queue, cou, ailes, pointe) : pointe à droite ou à gauche."""
+    d = 1 if orient == "right" else -1
+    tail, tip = cx - d * VAR_ARROW_LEN / 2, cx + d * VAR_ARROW_LEN / 2
+    neck = tip - d * VAR_HEAD_LEN
+    sh, hh = VAR_SHAFT_H / 2, VAR_HEAD_H / 2
+    return [(tail, cy - sh), (neck, cy - sh), (neck, cy - hh), (tip, cy), (neck, cy + hh),
+            (neck, cy + sh), (tail, cy + sh)]
+
+
+def _variables(chart, s, labels: bool) -> str:
+    """Les quatre flèches, couleurs prises dans le thème (variable_design / variable_personality)."""
+    cx0 = OFFSET[0] + 200                          # axe du bodygraph (et de la Tête)
+    data = chart_variables(chart)
+    out = []
+    for name, row, side in VAR_LAYOUT:
+        v = data[name]
+        cx = cx0 + (-VAR_AXIS_DX if side == "design" else VAR_AXIS_DX)
+        cy = VAR_ROW_Y + row * VAR_ROW_PITCH
+        color = s["variable_design"] if side == "design" else s["variable_personality"]
+        pts = " L".join(f"{x:.1f},{y:.1f}" for x, y in _arrow_points(cx, cy, v["orientation"]))
+        aria = VF.ARROW_ARIA.format(label=v["label"], sens=VF.ARROW_SENS[v["orientation"]])
+        g = [f'<g class="variable variable-{name}" data-orientation="{v["orientation"]}" role="img" '
+             f'aria-label="{escape(aria)}">',
+             f'<title>{escape(aria)}</title>',
+             f'<path d="M{pts} Z" fill="{color}" stroke="{color}" stroke-width="0.6" stroke-linejoin="round"/>']
+        if labels:
+            g.append(f'<text x="{cx:.1f}" y="{cy + VAR_HEAD_H / 2 + VAR_LABEL_GAP:.1f}" font-family="{s["font_text"]}" '
+                     f'font-size="{VAR_LABEL_SIZE:g}" text-anchor="middle" fill="{s["variable_label"]}">'
+                     f'{escape(v["title"])}</text>')
+        g.append('</g>')
+        out.append("".join(g))
+    return "\n  ".join(out)
+
+
 def new_uid() -> str:
     """Préfixe des identifiants internes d'une carte (commence par une lettre, comme l'exige XML)."""
     return "hd" + secrets.token_hex(4)
 
 
 def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None, name=None,
-                     show_planets=True, show_caption=True, uid=None) -> str:
+                     show_planets=True, show_caption=True, uid=None,
+                     show_variables=False, variable_labels=False) -> str:
     """Rend le bodygraph en SVG.
 
     chart : objet Chart du moteur (hd.chart.build_chart). Ou bien active_gates :
@@ -632,6 +684,12 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
     hasard par défaut, pour que plusieurs cartes puissent cohabiter dans une même
     page HTML sans se voler leurs dégradés. À fixer pour un rendu reproductible.
     Un thème qui a un id_prefix le place devant (ex. « gdh-hd1a2b3c4d »).
+
+    show_variables : dessine les quatre flèches des variables de part et d'autre de la Tête, à sa
+    hauteur (deux à gauche, deux à droite). Le cadre ne change pas. Faux par défaut : la carte
+    est alors identique, à l'octet, à celle d'avant cette option. Demande un thème calculé
+    (chart). variable_labels : ajoute le titre sous chaque flèche (sans effet si show_variables
+    est faux).
     """
     s = THEMES[theme or skin]
     uid = uid or new_uid()
@@ -642,6 +700,8 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
         active_gates = chart.active_gates
     if active_gates is None:
         raise ValueError("fournir chart ou active_gates")
+    if show_variables and chart is None:
+        raise ValueError("show_variables demande un thème calculé (chart), pas seulement des portes")
     active, channels, defined = derive(active_gates)
     if chart is not None:  # garde-fou : le dessin doit dire la même chose que le moteur
         assert sorted(_channel_key(*c) for c in channels) == sorted(_channel_key(*c) for c in chart.channels)
@@ -744,6 +804,8 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
             parts.append(f'<text x="{x:.1f}" y="{y + 2.8:.1f}" font-family="{num}" font-size="8" '
                          f'font-weight="{w_off}" text-anchor="middle" fill="{fill}"{op}{halo}>{g}</text>')
 
+    if show_variables:
+        parts.append(_variables(chart, s, variable_labels))
     if show_planets:
         parts.append(_planet_columns(chart, s))
     if show_caption:

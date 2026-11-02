@@ -5,7 +5,7 @@ Ce moteur calcule une carte Human Design (un « bodygraph ») à partir d'une da
 Il fournit :
 - les activations Personnalité et Design des 13 corps : porte.ligne, avec ▲ exaltation, ▼ détriment et ★ juxtaposition, plus couleur, ton et base ;
 - les canaux, les centres définis, le type, la stratégie, l'autorité, le profil, la définition, la croix d'incarnation et les flèches des variables ;
-- un bodygraph en SVG, en deux thèmes de marque : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : marbre, or et bleu nuit), plus l'habillage `classique` (code officiel rouge et noir) ;
+- un bodygraph en SVG, en deux thèmes de marque : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : la même carte qu'`atlas` en or et bleu nuit, sur fond ivoire), plus l'habillage `classique` (code officiel rouge et noir) ;
 - une petite API web, que l'application Human Atlas appelle pour afficher la carte de chaque personne.
 
 Le moteur ne stocke rien : il calcule, répond, puis oublie.
@@ -14,7 +14,7 @@ Le moteur ne stocke rien : il calcule, répond, puis oublie.
 
 | Chemin | Rôle |
 |---|---|
-| `humandesign/hd/` | le moteur : calcul (`chart.py`, `ephemeris.py`, `data.py`, `fixing.py`), heures et lieux (`timeutil.py`), résumé (`signup.py`), dessin de la carte (`bodygraph.py`), toutes ses couleurs (`themes.py`) |
+| `humandesign/hd/` | le moteur : calcul (`chart.py`, `ephemeris.py`, `data.py`, `fixing.py`), heures et lieux (`timeutil.py`), résumé (`signup.py`), dessin de la carte (`bodygraph.py`), toutes ses couleurs (`themes.py`), tous les textes français des variables (`variables_fr.py`) |
 | `humandesign/exemples/` | cartes d'exemple (personne fictive), dont `atlas.svg` et `gdh.svg` : la même naissance dans les deux thèmes |
 | `humandesign/api_app.py` | l'API web (WSGI, sans framework) |
 | `humandesign/passenger_wsgi.py` | point d'entrée pour l'hébergement (Passenger, o2switch) |
@@ -111,7 +111,7 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
 
 Le détail des champs d'entrée et de sortie, et des codes d'erreur, se trouve dans [DEPLOIEMENT.md](humandesign/DEPLOIEMENT.md).
 
-**Thème de la carte (`"theme"`).** La carte SVG existe en deux thèmes de marque, qui ne changent que l'apparence (jamais le calcul) : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : fond marbre ivoire, centres définis aux couleurs officielles du Human Design, Design en or bronze, Personnalité en bleu nuit). Pour GoDesignHumain :
+**Thème de la carte (`"theme"`).** La carte SVG existe en deux thèmes de marque, qui ne changent que l'apparence (jamais le calcul) : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : exactement la carte `atlas`, même fond à halo doux, mêmes formes, polices, centres et flèches, avec pour seules différences ses couleurs : Design en or, Personnalité en bleu nuit, fond ivoire et champagne, canaux inactifs beige). Pour GoDesignHumain :
 
 ```bash
 curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer $ENGINE_API_KEY" -H "Content-Type: application/json" -d '{"date":"2000-01-01","time":"12:00","time_precision":"exacte","place":"Paris, France","name":"Exemple","theme":"gdh"}'
@@ -119,15 +119,22 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
 
 La carte est dans le champ `svg` de la réponse. Une autre valeur que `atlas` ou `gdh` répond `422` (`invalid_theme`), de même que `theme` donné avec `skin` (n'en donner qu'un). Les identifiants internes de la carte gdh commencent par `gdh-` : plusieurs cartes, des deux thèmes, peuvent cohabiter dans une même page. Les couleurs des thèmes sont toutes dans `humandesign/hd/themes.py`.
 
-**Option `"details": true`** (thème complet, pour les produits premium). Sans elle, la réponse est identique. Avec elle, trois champs s'ajoutent :
+**Variables : les quatre flèches (champ `variables`, toujours renvoyé).** `variables` contient les clés `determination` (Soleil Design, haut-gauche, « Digestion »), `environment` (Nœud Nord Design, bas-gauche), `motivation` (Soleil Personnalité, haut-droite) et `perspective` (Nœud Nord Personnalité, bas-droite, « Vision »). Pour chacune : `orientation` (`left` pour un ton 1, 2 ou 3, `right` pour un ton 4, 5 ou 6), `color` (1 à 6), `tone` (1 à 6), `base` (1 à 5), `title` (ex. `Digestion`) et `label`, un libellé lisible (ex. `Digestion : Son Aigu`, `Perspective : Personnel / Pouvoir`). S'y ajoutent `direction` (`gauche` ou `droite`, comme `details.variables`), le côté et le corps qui portent la flèche (`side`, `planet`), la porte et la ligne, et les noms français et anglais : `color_name`, `tone_name` et, selon la flèche, `color_side` ou `opposite_color_name`. **Tous les textes français sont dans `humandesign/hd/variables_fr.py`**, seul fichier à corriger pour changer un libellé.
+
+**Dessiner les flèches (`"show_variables": true`).** Les quatre flèches sont dessinées de part et d'autre de la Tête, à sa hauteur : deux à gauche (Design : Digestion au-dessus d'Environnement), deux à droite (Personnalité : Motivation au-dessus de Perspective), la pointe tournée vers la gauche ou la droite selon le ton. Elles sont fines (trait de 4 px, pointe effilée, 38 px de long). Leurs couleurs viennent du thème (`variable_design` et `variable_personality` dans `hd/themes.py`), donc or et bleu nuit pour `gdh`, orange et violet pour `atlas`. Le cadre du SVG **ne change pas** (616 × 840) et le reste de la carte ne bouge pas. `"variable_labels": true` écrit le titre sous chaque flèche (Digestion, Environnement, Motivation, Perspective), en petit (8 px) et dans la couleur discrète `variable_label` du thème ; sans `show_variables`, il ne change rien. Les deux valent `false` par défaut, et alors la carte est **identique à l'octet** à celle d'avant ces options. Ce sont des réglages de `/v1/chart` : les autres routes les refusent (`unknown_field`). Exemples : [`humandesign/exemples/atlas-variables.svg`](humandesign/exemples/atlas-variables.svg) et [`humandesign/exemples/gdh-variables.svg`](humandesign/exemples/gdh-variables.svg).
+
+```
+curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer $ENGINE_API_KEY" -H "Content-Type: application/json" -d '{"date":"2000-01-01","time":"12:00","time_precision":"exacte","place":"Paris, France","name":"Exemple","theme":"gdh","show_variables":true,"variable_labels":true}'
+```
+
+**Option `"details": true`** (thème complet, pour les produits premium). Sans elle, la réponse est identique. Avec elle, deux champs s'ajoutent (`variables`, décrit plus haut, est renvoyé dans tous les cas, avec ou sans `details`) :
 
 - `activations_details` : pour chaque corps, côté `personality` et `design`, la porte, la ligne, la couleur (1 à 6), le ton (1 à 6), la base (1 à 5), et `stable_minutes` : de combien de minutes l'heure de naissance peut avancer (`before`) ou reculer (`after`) avant que chaque valeur change (`null` : plus de 24 h) ;
-- `variables` : les quatre flèches (`determination`, `environment`, `motivation`, `perspective`), avec leur direction (`gauche` ou `droite`) et la couleur, le ton et la base qui les portent. Chaque flèche donne aussi ses noms, en français et en anglais (`{"fr": …, "en": …}`) : `color_name` (ex. Lumière / Light), `tone_name` (le sens, ex. Goût / Taste) et, pour Détermination et Environnement, `color_side` (sous-libellé selon le ton, ex. Directe / Direct), pour Motivation et Perspective, `opposite_color_name` (couleur opposée, ex. Possibilité pour Probabilité) ;
 - `precision` : `fiable`, `à confirmer` ou `incertain`, selon que le thème (type, autorité, profil, croix, canaux) ou les variables peuvent changer dans la marge de l'heure déclarée (±5 min pour une heure exacte, ±60 min pour une heure approximative).
 
 Ce calcul prend environ 2 secondes : ne le demander que lorsqu'il sert.
 
-**Composite (`/v1/composite`).** Le corps contient `people` (exactement 2 personnes, chacune au format de `/v1/chart`, sans `include_svg`, `skin` ni `details`) et, au besoin, `include_svg`. Pour chaque canal présent dans la composite, `connection` vaut :
+**Composite (`/v1/composite`).** Le corps contient `people` (exactement 2 personnes, chacune au format de `/v1/chart`, sans `include_svg`, `skin`, `details`, `show_variables` ni `variable_labels`) et, au besoin, `include_svg`. Pour chaque canal présent dans la composite, `connection` vaut :
 
 - `electromagnetic` (électromagnétique) : chacun a une porte du canal ;
 - `compromise` (compromis) : l'un a le canal complet (`holder`), l'autre une seule de ses portes ;
