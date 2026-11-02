@@ -7,7 +7,7 @@
 # publiée par la Free Software Foundation (ou, à votre choix, toute version
 # ultérieure). Il est distribué SANS AUCUNE GARANTIE. Voir le fichier LICENSE.
 
-"""Les quatre variables (flèches) : champ « variables » de l'API et dessin au-dessus de la Tête.
+"""Les quatre variables (flèches) : champ « variables » de l'API et dessin de part et d'autre de la Tête.
 
 Ce qui est vérifié : l'orientation suit le ton (1 à 3 gauche, 4 à 6 droite), les quatre
 flèches sont dans le JSON, le dessin respecte le thème, et surtout RIEN ne change quand
@@ -28,7 +28,7 @@ import pytest
 from hd import data as D
 from hd import precision as P
 from hd import variables_fr as VF
-from hd.bodygraph import PAGE_H, PAGE_W, render_bodygraph, variables_band
+from hd.bodygraph import render_bodygraph
 from hd.chart import Activation, build_chart
 from hd.themes import PUBLIC_THEMES, THEMES
 from hd.timeutil import local_to_utc
@@ -212,7 +212,7 @@ def test_api_svg_with_and_without_the_option():
     _, on = call({**API_FICTIF_1, "show_variables": True})
     assert 'viewBox="0 0 616 840"' in plain["svg"] and 'viewBox="0 0 616 840"' in off["svg"]
     assert "variable-determination" not in plain["svg"] and "variable-determination" not in off["svg"]
-    assert "variable-determination" in on["svg"]
+    assert "variable-determination" in on["svg"] and 'viewBox="0 0 616 840"' in on["svg"]
     for theme in PUBLIC_THEMES:
         _, r = call({**API_FICTIF_1, "theme": theme, "show_variables": True})
         ElementTree.fromstring(r["svg"])
@@ -249,35 +249,26 @@ def test_fictif_goldens_are_unchanged(skin, i):
     assert svg.replace('id="hdtest0001-', 'id="').replace("url(#hdtest0001-", "url(#") == golden
 
 
-def test_the_card_is_the_same_apart_from_the_frame_the_background_and_the_arrows():
-    """Avec l'option, le dessin d'origine ne bouge pas : seuls le cadre, le fond et les flèches changent."""
+def test_the_card_is_the_same_apart_from_the_arrows():
+    """Avec l'option, le dessin d'origine ne bouge pas (cadre et fond compris) : seules les flèches s'ajoutent."""
     for theme in ("atlas", "gdh"):
-        c = _chart(1)
-        off = render_bodygraph(c, theme=theme, name="Exemple", uid="u")
-        on = render_bodygraph(c, theme=theme, name="Exemple", uid="u", show_variables=True)
-        band = variables_band(False)
-        no_arrows = re.sub(r'<g class="variable .*?</g>\n  ', "", on, flags=re.S)
-        assert no_arrows.count("variable") == 0
-        no_arrows = no_arrows.replace(f'viewBox="0 {-band} {PAGE_W} {PAGE_H + band}"', 'viewBox="0 0 616 840"')
-        no_arrows = no_arrows.replace(f'height="{PAGE_H + band}"', 'height="840"', 1)
-        # fond : le rectangle prolongé vers le haut redevient celui de la page
-        no_arrows = no_arrows.replace(f'y="{-band}" width="{PAGE_W}" height="{PAGE_H + band}"', f'width="{PAGE_W}" height="{PAGE_H}"')
-        assert no_arrows == off, theme
+        for labels in (False, True):
+            c = _chart(1)
+            off = render_bodygraph(c, theme=theme, name="Exemple", uid="u")
+            on = render_bodygraph(c, theme=theme, name="Exemple", uid="u", show_variables=True, variable_labels=labels)
+            no_arrows = re.sub(r'<g class="variable .*?</g>\n  ', "", on, flags=re.S)
+            assert "variable" not in no_arrows
+            assert no_arrows == off, (theme, labels)
 
 
 # ---------------------------------------------------------------- le dessin
 
-def test_frame_grows_upward_only_with_the_option():
+def test_frame_never_changes():
+    """Les flèches sont à la hauteur de la Tête, dans la page : le cadre reste 616 × 840."""
     c = _chart(1)
-    off = ElementTree.fromstring(render_bodygraph(c, theme="atlas", name="E", uid="u"))
-    assert (off.get("viewBox"), off.get("width"), off.get("height")) == ("0 0 616 840", "616", "840")
-    for labels in (False, True):
-        band = variables_band(labels)
-        on = ElementTree.fromstring(render_bodygraph(c, theme="atlas", name="E", uid="u",
-                                                     show_variables=True, variable_labels=labels))
-        assert on.get("viewBox") == f"0 {-band} 616 {840 + band}"
-        assert (on.get("width"), on.get("height")) == ("616", str(840 + band))
-    assert variables_band(True) > variables_band(False) > 0
+    for kw in ({}, {"show_variables": True}, {"show_variables": True, "variable_labels": True}):
+        svg = ElementTree.fromstring(render_bodygraph(c, theme="atlas", name="E", uid="u", **kw))
+        assert (svg.get("viewBox"), svg.get("width"), svg.get("height")) == ("0 0 616 840", "616", "840"), kw
 
 
 @pytest.mark.parametrize("theme", ["atlas", "gdh", "classique"])
@@ -302,7 +293,13 @@ def test_four_arrows_follow_the_tones_and_the_layout(theme):
     cy = lambda n: pts[n][3][1]
     assert cy("determination") < cy("environment") and cy("motivation") < cy("perspective")
     assert cy("determination") == cy("motivation") and cy("environment") == cy("perspective")
-    assert all(cy(n) < 0 for n in NAMES)  # dans la bande ajoutée, au-dessus de la page
+    assert all(34 <= cy(n) <= 117 for n in NAMES)  # à la hauteur de la Tête (y = 34 à 117)
+    for n in NAMES:  # fines : 4 px de trait, ~38 px de long (60 % de l'ancienne flèche de 64)
+        ys = [y for _, y in pts[n]]
+        xs = [x for x, _ in pts[n]]
+        assert max(xs) - min(xs) == pytest.approx(38, abs=0.2)
+        assert pts[n][1][1] - pts[n][0][1] == pytest.approx(0, abs=0.01) and pts[n][-1][1] - pts[n][0][1] == pytest.approx(3.4, abs=0.1)
+        assert max(ys) - min(ys) <= 8.1
 
 
 def test_arrow_colors_come_from_the_theme():
@@ -334,6 +331,9 @@ def test_labels_are_optional_and_come_from_the_text_file():
         assert g_plain[n].find(f"{SVG_NS}text") is None
         assert g_lab[n].find(f"{SVG_NS}text").text == VF.ARROW_TITLES[n]
     assert [VF.ARROW_TITLES[n] for n in NAMES] == ["Digestion", "Environnement", "Motivation", "Perspective"]
+    for n in NAMES:  # petits et discrets : 8 px, couleur « variable_label » du thème
+        text = g_lab[n].find(f"{SVG_NS}text")
+        assert text.get("font-size") == "8" and text.get("fill") == THEMES["atlas"]["variable_label"]
 
 
 def test_arrows_are_described_for_screen_readers():

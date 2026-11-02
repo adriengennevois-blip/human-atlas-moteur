@@ -125,7 +125,7 @@ COMPOSITE = {**ATLAS, "design": "#4F8A6B", "personality": "#B8476A",
 # le conscient) ; centres définis aux couleurs officielles. Les textes en couleur utilisent la teinte la plus foncée de chaque
 # dégradé, pour rester lisibles sur l'ivoire.
 # Veinage du fond.
-GDH_MARBLE = Marble("marbre", color=(0.55, 0.50, 0.42), opacity=0.12)
+GDH_MARBLE = Marble("marbre", color=(0.55, 0.50, 0.42), opacity=0.08)
 GDH = {
     **ATLAS,
     "id_prefix": "gdh",

@@ -89,7 +89,7 @@ def test_gdh_marble_veins(gdh):
     assert turb and float(turb.group(1)) == pytest.approx(0.012) and turb.group(2) == "3"
     assert "<feColorMatrix" in gdh
     table = re.search(r'tableValues="([^"]+)"', gdh).group(1)
-    assert max(float(v) for v in table.split()) <= 0.12  # veines à 12 % au plus
+    assert max(float(v) for v in table.split()) == pytest.approx(0.08)  # veines à 8 % (un tiers de moins qu'à 12 %)
     # veinage sur le fond seulement (centres définis en aplat)
     assert gdh.count("url(#gdh-hdtest0001-marbre)") == 1
 

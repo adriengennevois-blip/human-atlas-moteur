@@ -479,24 +479,18 @@ class _Paints:
         return f'<defs>{"".join(self.defs.values())}</defs>' if self.defs else ""
 
 
-def _page_rect(top=0):
-    """Attributs du rectangle de fond : toute la page, prolongée de « top » vers le haut
-    (bande des flèches des variables ; rien de changé quand top vaut 0)."""
-    return (f'y="{-top}" ' if top else "") + f'width="{PAGE_W}" height="{PAGE_H + top}"'
-
-
-def _background(s, uid, paint, top=0):
+def _background(s, uid, paint):
     bg = s["background"]
     if bg["kind"] == "plain":
-        return f'<rect {_page_rect(top)} fill="{bg["color"]}"/>'
+        return f'<rect width="{PAGE_W}" height="{PAGE_H}" fill="{bg["color"]}"/>'
     if bg["kind"] == "marble":
-        return (f'<rect {_page_rect(top)} fill="{bg["color"]}"/>\n'
-                f'  <rect {_page_rect(top)} fill="{bg["color"]}" '
+        return (f'<rect width="{PAGE_W}" height="{PAGE_H}" fill="{bg["color"]}"/>\n'
+                f'  <rect width="{PAGE_W}" height="{PAGE_H}" fill="{bg["color"]}" '
                 f'filter="{paint.filter(bg["texture"])}"/>')
-    return _atmosphere(bg, uid, top)
+    return _atmosphere(bg, uid)
 
 
-def _atmosphere(bg, uid, top=0):
+def _atmosphere(bg, uid):
     ox, oy = OFFSET
     return f"""
   <defs>
@@ -513,7 +507,7 @@ def _atmosphere(bg, uid, top=0):
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect {_page_rect(top)} fill="url(#{uid}-bg)"/>
+  <rect width="{PAGE_W}" height="{PAGE_H}" fill="url(#{uid}-bg)"/>
   <ellipse cx="{200 + ox}" cy="{350 + oy}" rx="250" ry="350" fill="url(#{uid}-halo)"/>
   <g fill="none" stroke="{bg['orbit']}" stroke-opacity="0.16" stroke-width="0.8">
     <ellipse cx="{200 + ox}" cy="{330 + oy}" rx="262" ry="112" transform="rotate(-16 {200 + ox} {330 + oy})"/>
@@ -624,23 +618,16 @@ def _halo(s) -> str:
 
 # --------------------------------------------------------------------------- variables (flèches)
 
-# Les quatre flèches s'inscrivent dans une bande ajoutée AU-DESSUS de la page (le dessin ne
-# bouge pas : seul le cadre grandit vers le haut, par le viewBox). Deux flèches à gauche
-# (Design), deux à droite (Personnalité), l'une au-dessus de l'autre, de part et d'autre de
-# l'axe de la Tête ; la pointe suit le ton (1 à 3 : gauche, 4 à 6 : droite).
-VAR_ARROW_LEN, VAR_HEAD_LEN, VAR_SHAFT_H, VAR_HEAD_H = 64, 22, 7, 20
-VAR_AXIS_DX = 92                       # de l'axe du bodygraph au centre de chaque groupe
-VAR_PAD_TOP, VAR_PAD_BOTTOM = 14, 6
-VAR_LABEL_SIZE, VAR_LABEL_GAP = 10.5, 12   # taille du libellé, distance sous la flèche
+# Les quatre flèches se placent de part et d'autre de la Tête, à sa hauteur (la Tête occupe
+# y = 34 à 117 dans la page) : deux à gauche (Design), deux à droite (Personnalité), l'une au-dessus
+# de l'autre. Le cadre de la carte ne change pas. La pointe suit le ton (1 à 3 : gauche, 4 à 6 : droite).
+VAR_ARROW_LEN, VAR_HEAD_LEN, VAR_SHAFT_H, VAR_HEAD_H = 38, 12, 3.4, 8   # fines (4 px avec le contour), pointe effilée
+VAR_AXIS_DX = 96                       # de l'axe du bodygraph au centre de chaque groupe
+VAR_ROW_Y, VAR_ROW_PITCH = 56, 36      # ordonnée de la 1re rangée, écart entre les deux
+VAR_LABEL_SIZE, VAR_LABEL_GAP = 8, 11  # taille du libellé, distance sous la flèche
 # Rangées (haut → bas) et colonnes (gauche = Design, droite = Personnalité).
 VAR_LAYOUT = (("determination", 0, "design"), ("environment", 1, "design"),
               ("motivation", 0, "personality"), ("perspective", 1, "personality"))
-
-
-def variables_band(labels: bool) -> int:
-    """Hauteur ajoutée au-dessus de la page pour les flèches (plus haute avec les libellés)."""
-    pitch = VAR_HEAD_H + (VAR_LABEL_GAP + 6 if labels else 10)
-    return VAR_PAD_TOP + 2 * pitch + VAR_PAD_BOTTOM
 
 
 def _arrow_points(cx, cy, orient):
@@ -655,22 +642,20 @@ def _arrow_points(cx, cy, orient):
 
 def _variables(chart, s, labels: bool) -> str:
     """Les quatre flèches, couleurs prises dans le thème (variable_design / variable_personality)."""
-    band = variables_band(labels)
-    pitch = VAR_HEAD_H + (VAR_LABEL_GAP + 6 if labels else 10)
     cx0 = OFFSET[0] + 200                          # axe du bodygraph (et de la Tête)
     data = chart_variables(chart)
     out = []
     for name, row, side in VAR_LAYOUT:
         v = data[name]
         cx = cx0 + (-VAR_AXIS_DX if side == "design" else VAR_AXIS_DX)
-        cy = -band + VAR_PAD_TOP + VAR_HEAD_H / 2 + row * pitch
+        cy = VAR_ROW_Y + row * VAR_ROW_PITCH
         color = s["variable_design"] if side == "design" else s["variable_personality"]
         pts = " L".join(f"{x:.1f},{y:.1f}" for x, y in _arrow_points(cx, cy, v["orientation"]))
         aria = VF.ARROW_ARIA.format(label=v["label"], sens=VF.ARROW_SENS[v["orientation"]])
         g = [f'<g class="variable variable-{name}" data-orientation="{v["orientation"]}" role="img" '
              f'aria-label="{escape(aria)}">',
              f'<title>{escape(aria)}</title>',
-             f'<path d="M{pts} Z" fill="{color}" stroke="{color}" stroke-width="1.2" stroke-linejoin="round"/>']
+             f'<path d="M{pts} Z" fill="{color}" stroke="{color}" stroke-width="0.6" stroke-linejoin="round"/>']
         if labels:
             g.append(f'<text x="{cx:.1f}" y="{cy + VAR_HEAD_H / 2 + VAR_LABEL_GAP:.1f}" font-family="{s["font_text"]}" '
                      f'font-size="{VAR_LABEL_SIZE:g}" text-anchor="middle" fill="{s["variable_label"]}">'
@@ -700,11 +685,11 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
     page HTML sans se voler leurs dégradés. À fixer pour un rendu reproductible.
     Un thème qui a un id_prefix le place devant (ex. « gdh-hd1a2b3c4d »).
 
-    show_variables : dessine les quatre flèches des variables au-dessus de la Tête. Le cadre
-    grandit vers le haut (viewBox négatif) ; le reste du dessin ne bouge pas. Faux par défaut :
-    la carte est alors identique, à l'octet, à celle d'avant cette option. Demande un thème
-    calculé (chart). variable_labels : ajoute le titre sous chaque flèche (sans effet si
-    show_variables est faux).
+    show_variables : dessine les quatre flèches des variables de part et d'autre de la Tête, à sa
+    hauteur (deux à gauche, deux à droite). Le cadre ne change pas. Faux par défaut : la carte
+    est alors identique, à l'octet, à celle d'avant cette option. Demande un thème calculé
+    (chart). variable_labels : ajoute le titre sous chaque flèche (sans effet si show_variables
+    est faux).
     """
     s = THEMES[theme or skin]
     uid = uid or new_uid()
@@ -717,7 +702,6 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
         raise ValueError("fournir chart ou active_gates")
     if show_variables and chart is None:
         raise ValueError("show_variables demande un thème calculé (chart), pas seulement des portes")
-    top = variables_band(variable_labels) if show_variables else 0
     active, channels, defined = derive(active_gates)
     if chart is not None:  # garde-fou : le dessin doit dire la même chose que le moteur
         assert sorted(_channel_key(*c) for c in channels) == sorted(_channel_key(*c) for c in chart.channels)
@@ -726,15 +710,15 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
     paint = _Paints(uid)
     design, personality = paint(s["design"]), paint(s["personality"])
     w = 6.2
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {-top} {PAGE_W} {PAGE_H + top}" '
-             f'width="{PAGE_W}" height="{PAGE_H + top}" font-family="{FONT}" role="img" '
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {PAGE_W} {PAGE_H}" '
+             f'width="{PAGE_W}" height="{PAGE_H}" font-family="{FONT}" role="img" '
              f'aria-label="Bodygraph Human Design"'
              # Polices embarquées : positions exactes des lettres, sans arrondi à petite taille.
              + (' text-rendering="geometricPrecision">' if s.get("embed_fonts") else '>')]
     if s.get("embed_fonts"):
         parts.append(_font_faces())
     defs_at = len(parts)  # dégradés et filtres du thème (rien pour atlas et classique)
-    parts.append(_background(s, uid, paint, top))
+    parts.append(_background(s, uid, paint))
 
     # 1. Canaux : fond (canal ouvert), puis moitiés activées, chacune de la couleur de sa porte.
     halves = {c: channel_halves(*c) for c in D.CHANNELS}

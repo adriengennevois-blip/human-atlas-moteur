@@ -149,7 +149,7 @@ Le premier appel après un redémarrage peut prendre une dizaine de secondes. Le
 | `skin` | `atlas` (par défaut) ou `classique` |
 | `theme` | thème de marque de la carte : `atlas` (Human Atlas, par défaut) ou `gdh` (GoDesignHumain). Autre valeur, ou donné avec `skin` : `422` (`invalid_theme`) |
 | `include_svg` | `true` (par défaut) ou `false` |
-| `show_variables` | optionnel, `false` par défaut : `true` dessine les 4 flèches des variables au-dessus de la Tête (le cadre du SVG grandit vers le haut). Autre valeur qu'un booléen : `400` |
+| `show_variables` | optionnel, `false` par défaut : `true` dessine les 4 flèches des variables de part et d'autre de la Tête (le cadre du SVG ne change pas). Autre valeur qu'un booléen : `400` |
 | `variable_labels` | optionnel, `false` par défaut : `true` écrit le titre sous chaque flèche (sans effet si `show_variables` est faux) |
 
 ### Ce que le moteur répond
@@ -158,7 +158,7 @@ Le premier appel après un redémarrage peut prendre une dizaine de secondes. Le
 
 `variables` (ajout : aucun autre champ n'a changé) donne les 4 flèches : `determination` (Soleil Design, « Digestion »), `environment` (Nœud Nord Design), `motivation` (Soleil Personnalité) et `perspective` (Nœud Nord Personnalité, « Vision »). Chacune porte `orientation` (`left` si le ton est 1, 2 ou 3 ; `right` si 4, 5 ou 6), `color` (1 à 6), `tone` (1 à 6), `base` (1 à 5), `title` et `label` (libellé lisible, ex. `Digestion : Son Aigu`), plus les noms français et anglais (`color_name`, `tone_name`, `color_side` ou `opposite_color_name`). Les textes français sont tous dans `hd/variables_fr.py` : c'est le seul fichier à modifier pour corriger un libellé, puis il faut remettre le moteur à jour (voir « Mettre le moteur à jour »).
 
-Avec `show_variables: true`, le champ `svg` contient en plus les 4 flèches, couleurs du thème choisi. Son `viewBox` commence alors à une ordonnée négative (ex. `0 -80 616 920`, ou `0 -96 616 936` avec les libellés) et `height` augmente d'autant : si l'app affiche le SVG dans une boîte à hauteur fixe, prévoir ce cadre plus haut. Sans l'option, le SVG est identique à l'octet à celui d'avant.
+Avec `show_variables: true`, le champ `svg` contient en plus les 4 flèches, couleurs du thème choisi. Le cadre (`viewBox` et dimensions) est le même que sans l'option : rien à changer côté app. Sans l'option, le SVG est identique à l'octet à celui d'avant.
 
 `details` contient le thème complet : `birth_utc`, `design_utc`, `cross_gates`, `quarter`, `variables` (les 4 flèches), et pour `personality` comme pour `design`, chacune des 13 planètes avec `gate`, `line`, `color`, `tone`, `base`, `fixing` (▲ ▼ ★), `label` (ex. `47.6▼`) et `longitude`.
 
