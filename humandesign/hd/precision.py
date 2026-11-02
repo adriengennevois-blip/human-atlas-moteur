@@ -25,6 +25,7 @@ recalculée au nouveau moment Design (88° d'arc solaire avant le nouveau Soleil
 from datetime import timedelta
 
 from . import data as D
+from . import variables_fr as VF
 from .ephemeris import design_jd, julian_day, lon_speed
 
 LEVELS = {"gate": D.GATE_ARC, "line": D.LINE_ARC, "color": D.COLOR_ARC,
@@ -130,17 +131,34 @@ VARIABLES = {  # flèche → (côté, corps)
 }
 
 
+def orientation(tone: int) -> str:
+    """Côté de la pointe de la flèche : ton 1, 2, 3 → « left » ; ton 4, 5, 6 → « right »."""
+    return "left" if tone <= 3 else "right"
+
+
 def variables(chart) -> dict:
-    """Les quatre flèches : direction (comme Chart.variables), et couleur, ton, base qui la portent."""
+    """Les quatre flèches : direction (comme Chart.variables), et couleur, ton, base qui la portent.
+    « orientation » (left/right) redit la direction en anglais, « title » et « label » sont les
+    libellés lisibles (textes dans hd/variables_fr.py)."""
     keys = {"determination": "design_sun", "environment": "design_node",
             "motivation": "personality_sun", "perspective": "personality_node"}
     out = {}
     for name, (side, planet) in VARIABLES.items():
         a = getattr(chart, side)[planet]
+        names = variable_names(name, a.color, a.tone)
         out[name] = {"side": side, "planet": planet, "direction": chart.variables[keys[name]],
+                     "orientation": orientation(a.tone),
                      "gate": a.gate, "line": a.line, "color": a.color, "tone": a.tone, "base": a.base,
-                     **variable_names(name, a.color, a.tone)}
+                     **names, "title": VF.ARROW_TITLES[name], "label": variable_label(name, names)}
     return out
+
+
+def variable_label(name: str, names: dict) -> str:
+    """Libellé lisible d'une flèche, ex. « Digestion : Son Aigu » (formats : hd/variables_fr.py)."""
+    return VF.LABEL_FORMATS[name].format(
+        titre=VF.ARROW_TITLES[name], couleur=names["color_name"]["fr"],
+        cote=names.get("color_side", {}).get("fr", ""),
+        opposee=names.get("opposite_color_name", {}).get("fr", ""))
 
 
 def _fr_en(pair):

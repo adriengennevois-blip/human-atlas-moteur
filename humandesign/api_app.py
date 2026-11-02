@@ -22,7 +22,9 @@ navigateur : la clé doit rester secrète).
   POST /v1/group    → groupe de 3 à 5 personnes (qui apporte quoi, paires ; Penta en attente)
   POST /v1/composite → composite de deux personnes (connexions canal par canal, + SVG)
   POST /v1/chart    → thème calculé (+ SVG du bodygraph ; « details »: true ajoute
-                      couleur/ton/base, sensibilité à l'heure, variables, précision)
+                      couleur/ton/base, sensibilité à l'heure, précision). « variables » :
+                      les 4 flèches, toujours renvoyées ; « show_variables »: true les dessine
+                      au-dessus de la Tête, « variable_labels »: true ajoute leur titre
 
 Application WSGI sans framework : tourne telle quelle sur o2switch
 (cPanel → « Setup Python App », via passenger_wsgi.py).
@@ -67,7 +69,10 @@ MIN_KEY_LENGTH = 32
 # Les fichiers d'éphémérides couvrent 1800-2400 ; le Design remonte ~88 jours avant.
 MIN_YEAR, MAX_YEAR = 1801, 2399
 PRECISIONS = ("exacte", "approximative", "inconnue")
-FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "theme", "include_svg", "details", "content_keys"}
+FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "theme", "include_svg", "details", "content_keys",
+          "show_variables", "variable_labels"}
+# Réglages propres à /v1/chart : refusés dans les personnes des autres routes (composite, groupe, transit, retour).
+CHART_ONLY = {"include_svg", "skin", "theme", "details", "content_keys", "show_variables", "variable_labels"}
 MAX_NAME = 60
 MAX_PLACE = 200
 
@@ -186,10 +191,16 @@ def parse_request(body) -> dict:
     want_keys = body.get("content_keys", False)
     if not isinstance(want_keys, bool):
         raise _bad("invalid_field", "« content_keys » doit valoir true ou false")
+    show_variables = body.get("show_variables", False)
+    if not isinstance(show_variables, bool):
+        raise _bad("invalid_field", "« show_variables » doit valoir true ou false")
+    variable_labels = body.get("variable_labels", False)
+    if not isinstance(variable_labels, bool):
+        raise _bad("invalid_field", "« variable_labels » doit valoir true ou false")
 
     return {"local": datetime(day.year, day.month, day.day, hh, mm), "precision": precision,
             **loc, "name": name, "skin": skin, "include_svg": include_svg, "details": want_details,
-            "content_keys": want_keys}
+            "content_keys": want_keys, "show_variables": show_variables, "variable_labels": variable_labels}
 
 
 # ---------------------------------------------------------------- calcul
@@ -271,9 +282,12 @@ def compute(req: dict) -> dict:
         "place_resolved": place,
         "time_warning": warning,
         "details": details(c),
+        "variables": P.variables(c),  # ajout : les 4 flèches (orientation, couleur, ton, base, libellé)
     }
     if req["include_svg"]:
-        out["svg"] = render_bodygraph(c, skin=req["skin"], name=req["name"])
+        out["svg"] = render_bodygraph(c, skin=req["skin"], name=req["name"],
+                                      show_variables=req["show_variables"],
+                                      variable_labels=req["variable_labels"])
     if req.get("details"):  # option : la réponse sans elle reste identique
         out.update(premium_details(c, req["precision"]))
     if req.get("content_keys"):  # option : clés des textes d'interprétation (textes hors dépôt)
@@ -306,7 +320,7 @@ def parse_composite(body) -> dict:
         raise _bad("invalid_field", "« people » doit contenir exactement 2 personnes")
     parsed = []
     for i, person in enumerate(people, 1):
-        if isinstance(person, dict) and set(person) & {"include_svg", "skin", "theme", "details", "content_keys"}:
+        if isinstance(person, dict) and set(person) & CHART_ONLY:
             raise _bad("unknown_field", f"personne {i} : « include_svg », « skin » et « details » se règlent pour toute la composite")
         try:
             parsed.append(parse_request(person))
@@ -343,7 +357,7 @@ def compute_group(req: dict) -> dict:
 
 
 def _parse_person(person, i: int) -> dict:
-    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "theme", "details", "content_keys"}:
+    if isinstance(person, dict) and set(person) & CHART_ONLY:
         raise _bad("unknown_field", f"personne {i} : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         return parse_request(person)
@@ -396,7 +410,7 @@ def parse_transit(body) -> dict:
         raise _bad("unknown_field", f"champ(s) inconnu(s) : {', '.join(sorted(unknown))}")
     when = _instant(body["at"]) if body.get("at") is not None else datetime.now(timezone.utc)
     person = body.get("chart")
-    if person is not None and isinstance(person, dict) and set(person) & {"include_svg", "skin", "theme", "details", "content_keys"}:
+    if person is not None and isinstance(person, dict) and set(person) & CHART_ONLY:
         raise _bad("unknown_field", "« chart » : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         natal = parse_request(person) if person is not None else None
@@ -439,7 +453,7 @@ def parse_return(body) -> dict:
     person = body.get("chart")
     if person is None:
         raise _bad("missing_field", "champ « chart » obligatoire (le thème natal)")
-    if isinstance(person, dict) and set(person) & {"include_svg", "skin", "theme", "details", "content_keys"}:
+    if isinstance(person, dict) and set(person) & CHART_ONLY:
         raise _bad("unknown_field", "« chart » : « include_svg », « skin » et « details » ne s'appliquent pas ici")
     try:
         natal = parse_request(person)

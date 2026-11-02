@@ -22,6 +22,11 @@ Thèmes du bodygraph :
   classique  code officiel : Design rouge, Personnalité noir, fond blanc
   composite  Human Atlas, une couleur par personne (réservé à /v1/composite)
   gdh        GoDesignHumain : marbre, or et ciel nocturne
+
+Les quatre flèches des variables (option « show_variables ») utilisent trois clés :
+  variable_design        flèches de gauche (Design)
+  variable_personality   flèches de droite (Personnalité)
+  variable_label         petit libellé sous chaque flèche (option « variable_labels »)
 """
 from dataclasses import dataclass
 
@@ -69,6 +74,7 @@ CLASSIQUE = {
     "gate_on": "#1b1b1b", "gate_text_on": "#ffffff",
     "gate_text": "#5c5c5c", "gate_text_defined": "#1b1b1b", "gate_text_defined_opacity": 0.62,
     "text": "#1b1b1b", "muted": "#6b6b6b",
+    "variable_design": "#c62828", "variable_personality": "#1b1b1b", "variable_label": "#6b6b6b",
     "background": {"kind": "plain", "color": "#ffffff"},
     "font_num": SANS, "font_title": SANS, "font_text": SANS,
     "embed_fonts": False, "legend": False,
@@ -93,6 +99,7 @@ ATLAS = {
     "gate_on": None, "gate_text_on": "#ffffff",
     "gate_text": "#8a8096", "gate_text_defined": "#2a2333", "gate_text_defined_opacity": 0.62,
     "text": "#2a2333", "muted": "#5d4f6d",
+    "variable_design": "#e07a1f", "variable_personality": "#6b2fa3", "variable_label": "#5d4f6d",
     "background": {
         "kind": "atmosphere", "top": "#efebf3", "bottom": "#dcd6e2", "halo": "#ffffff",
         "orbit": "#7b22aa", "dot_violet": "#7b22aa", "dot_orange": "#cd7a18", "veil": "#ffffff",
@@ -145,6 +152,8 @@ GDH = {
     "gate_text": "#3A3326", "gate_text_defined_opacity": None,
     "gate_text_defined": "auto", "text_choices": ("#FBF8F1", "#3A3326"),
     "text": "#3A3326", "muted": "#6E6452",
+    # Flèches des variables : or bronze (Design) et bleu nuit (Personnalité), comme les textes.
+    "variable_design": "#8C6A2E", "variable_personality": "#2B3550", "variable_label": "#6E6452",
     "background": {"kind": "marble", "color": "#F6F1E7", "texture": GDH_MARBLE},
     "legend_design": "or", "legend_personality": "bleu nuit",
 }

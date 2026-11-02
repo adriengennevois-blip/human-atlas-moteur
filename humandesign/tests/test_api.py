@@ -107,7 +107,8 @@ def test_full_response_for_fictif_1():
     assert code == 200
     assert set(r) == {"type", "type_fr", "authority", "authority_fr", "profile", "profile_label",
                       "cross", "channels", "defined_centers", "definition", "active_gates",
-                      "summary", "place_resolved", "time_warning", "details", "svg"}
+                      "summary", "place_resolved", "time_warning", "details", "svg",
+                      "variables"}  # « variables » : seul ajout (voir tests/test_variables.py)
     assert (r["type"], r["type_fr"]) == ("Generator", "Générateur")
     assert (r["authority"], r["authority_fr"]) == ("Sacral", "Sacrale")
     assert r["profile"] == "4/6" and r["profile_label"] == "4/6 (Opportuniste / Modèle)"

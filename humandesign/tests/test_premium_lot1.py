@@ -160,7 +160,9 @@ def test_variables_reuse_the_existing_arrows(chart1):
 def test_response_without_details_is_unchanged():
     code, r = call({**API_REF_1, "include_svg": False})
     assert code == 200
-    assert not {"activations_details", "variables", "precision"} & set(r)
+    # « variables » est désormais toujours renvoyé (ajout, voir tests/test_variables.py) ;
+    # le reste des options « details » n'apparaît toujours qu'à la demande.
+    assert not {"activations_details", "precision"} & set(r)
 
 
 def test_details_option_adds_the_premium_fields():
