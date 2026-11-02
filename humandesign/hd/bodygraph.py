@@ -570,7 +570,7 @@ def _xml_text(text: str) -> str:
     return escape(" ".join(_XML_INVALID.sub("", text).split()))
 
 
-def _caption(chart, name, s, uid):
+def _caption(chart, name, s, uid, transit_note=None):
     if chart is None:
         return ""
     title, text, cx = s["font_title"], s["font_text"], PAGE_W / 2
@@ -604,6 +604,11 @@ def _caption(chart, name, s, uid):
                    f'font-size="11.5" text-anchor="middle" fill="{s["muted"]}">'
                    f'<tspan fill="{s["design_text"]}">{s["legend_design"]}</tspan> : Design, ce qui agit en toi sans que tu le voies  ·  '
                    f'<tspan fill="{s["personality_text"]}">{s["legend_personality"]}</tspan> : Personnalité, ce que tu connais de toi</text>')
+        if transit_note:  # une ligne de plus : ce que montrent les pointillés
+            y += 22
+            out.append(f'<text x="{cx}" y="{y}" font-family="{text}" font-style="italic" font-weight="300" '
+                       f'font-size="11.5" text-anchor="middle" fill="{s["muted"]}">'
+                       f'<tspan fill="{s["transit"]}">pointillé</tspan> : {escape(transit_note)}</text>')
     return "\n  ".join(out)
 
 
@@ -672,7 +677,8 @@ def new_uid() -> str:
 
 def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None, name=None,
                      show_planets=True, show_caption=True, uid=None,
-                     show_variables=False, variable_labels=False) -> str:
+                     show_variables=False, variable_labels=False,
+                     transit_gates=None, transit_centers=None, transit_note=None) -> str:
     """Rend le bodygraph en SVG.
 
     chart : objet Chart du moteur (hd.chart.build_chart). Ou bien active_gates :
@@ -690,6 +696,11 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
     est alors identique, à l'octet, à celle d'avant cette option. Demande un thème calculé
     (chart). variable_labels : ajoute le titre sous chaque flèche (sans effet si show_variables
     est faux).
+
+    transit_gates : portes activées par un transit (ensemble de numéros) ; transit_centers : centres
+    qu'il définit le temps du transit ; transit_note : phrase de légende. Le dessin ne calcule rien :
+    ces données viennent de hd.timeline.transit_on_chart. Rien n'est dessiné sans elles : la carte est
+    alors identique, à l'octet, à celle d'avant. Style : clés « transit… » du thème (pointillé, anneau).
     """
     s = THEMES[theme or skin]
     uid = uid or new_uid()
@@ -747,6 +758,16 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
                 parts.append(f'<path {cls} d="{d}" stroke="{design}" stroke-width="{w}"/>')
                 parts.append(f'<path {cls} d="{d}" stroke="{personality}" stroke-width="{w}" '
                              f'stroke-dasharray="{s["both_dash"]}"/>')
+    if transit_gates:  # le transit : un pointillé par-dessus la moitié de canal de chaque porte activée
+        done = set()
+        for (a, b), (ha, hb) in halves.items():
+            for gate, half in ((a, ha), (b, hb)):
+                d = seg_d(half)
+                if gate in transit_gates and (gate, d) not in done:
+                    done.add((gate, d))
+                    parts.append(f'<path class="transit-gate-{gate}" d="{d}" stroke="{s["transit"]}" '
+                                 f'stroke-width="{w * 0.55:.2f}" stroke-linecap="round" '
+                                 f'stroke-dasharray="{s["transit_dash"]}"/>')
     parts.append('</g>')
 
     # 3. Centres.
@@ -763,6 +784,12 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
         else:
             parts.append(f'<path id="{uid}-center-{center}" d="{d}" fill="{s["center_open"]}" '
                          f'stroke="{s["center_open_stroke"]}" stroke-width="1.2"/>')
+
+    for center in D.CENTERS:  # centres définis le temps du transit : teinte et contour en tirets
+        if transit_centers and center in transit_centers:
+            parts.append(f'<path class="transit-center-{center}" d="{_center_path(center)}" fill="{s["transit"]}" '
+                         f'fill-opacity="{s["transit_center_opacity"]}" stroke="{s["transit"]}" stroke-width="1.8" '
+                         f'stroke-dasharray="{s["transit_center_dash"]}"/>')
 
     # 4. Numéros de portes.
     num = s["font_num"]
@@ -804,12 +831,17 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
             parts.append(f'<text x="{x:.1f}" y="{y + 2.8:.1f}" font-family="{num}" font-size="8" '
                          f'font-weight="{w_off}" text-anchor="middle" fill="{fill}"{op}{halo}>{g}</text>')
 
+    if transit_gates:  # anneau autour du numéro de chaque porte activée par le transit
+        for g in sorted(transit_gates):
+            x, y = gate_label(g)
+            parts.append(f'<circle class="transit-ring-{g}" cx="{x + OFFSET[0]:.1f}" cy="{y + OFFSET[1]:.1f}" r="9.6" '
+                         f'fill="none" stroke="{s["transit"]}" stroke-width="{s["transit_ring"]}"/>')
     if show_variables:
         parts.append(_variables(chart, s, variable_labels))
     if show_planets:
         parts.append(_planet_columns(chart, s))
     if show_caption:
-        parts.append(_caption(chart, name, s, uid))
+        parts.append(_caption(chart, name, s, uid, transit_note))
     parts.insert(defs_at, paint.block())
     parts.append('</svg>')
     return "\n  ".join(p for p in parts if p)

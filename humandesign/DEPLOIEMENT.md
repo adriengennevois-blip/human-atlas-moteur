@@ -2,7 +2,7 @@
 
 **Ce que ça fait :** l'app `real-world-weavers` envoie au moteur une date, une heure et un lieu de naissance. Le moteur, hébergé chez o2switch, calcule le thème (type, autorité, profil, croix, canaux…) et renvoie le bodygraph en SVG. Il ne stocke rien : il calcule, répond, puis oublie.
 
-Compte **30 minutes**, une seule fois. Quatre étapes, dans cet ordre.
+Compte **30 minutes**, une seule fois. Quatre étapes, dans cet ordre. Une cinquième étape (« Les clés par site ») prépare l'espace premium de GoDesignHumain.
 
 ---
 
@@ -139,6 +139,8 @@ Le premier appel après un redémarrage peut prendre une dizaine de secondes. Le
 
 ### Ce que l'app envoie
 
+*(Les routes de l'espace premium — `/v1/transit/chart`, `/v1/ingresses`, `/v1/upcoming` — et l'option `reading` de `/v1/chart` sont décrites dans le README, section « L'API ». La clé se met dans l'en-tête `X-API-Key` : voir l'étape 5.)*
+
 | Champ | Contenu |
 |---|---|
 | `date` | `AAAA-MM-JJ` (entre 1801 et 2399) |
@@ -177,3 +179,58 @@ En cas d'erreur : `{"error": {"code": "…", "message": "…"}}` avec le code HT
 ## Licence
 
 Le moteur est publié sous licence AGPL v3, comme la Swiss Ephemeris qu'il utilise (voir le `README.md` à la racine du dépôt). L'AGPL impose d'offrir le code source à ceux qui utilisent le service : c'est le rôle de `GET /source` et de `SOURCE_URL`. Dans l'app, ajoute un lien visible vers ce code source, par exemple en pied de page ou à côté de la carte (« Code source du moteur »).
+
+---
+
+## 5. Les clés par site : Atlas et GDH (15 min)
+
+Avant d'ouvrir l'espace premium, chaque site reçoit **sa propre clé**. Ainsi, on peut couper ou changer la clé d'un site sans toucher à l'autre, et le moteur limite le débit site par site.
+
+⚠️ **Human Atlas ne change pas** tant que tu ne l'as pas décidé : son ancienne clé (`ENGINE_API_KEY`) continue de fonctionner. Tu ne la supprimeras qu'à l'étape 5.e, quand Atlas aura sa nouvelle clé.
+
+**a. Fabriquer deux clés.** Dans le Terminal du Mac, tape **deux fois** (une pour Atlas, une pour GDH) :
+
+```bash
+openssl rand -hex 32
+```
+
+Chaque fois, copie les 64 caractères obtenus dans ton gestionnaire de mots de passe, avec une étiquette claire (« Clé moteur ATLAS », « Clé moteur GDH »). Si tu n'as pas le Terminal sous la main, le générateur de mots de passe de ton gestionnaire fait aussi l'affaire : demande **64 caractères, lettres et chiffres seulement**. Ne réutilise jamais la même clé pour les deux sites, et ne l'envoie jamais par e-mail ni par messagerie.
+
+**b. Les ranger chez o2switch.** cPanel → *Setup Python App* → clique sur l'application du moteur (crayon) → *Add Variable* :
+
+| Nom | Valeur |
+|---|---|
+| `API_KEY_ATLAS` | la clé « ATLAS » |
+| `API_KEY_GDH` | la clé « GDH » |
+| `RATE_LIMIT_PER_MINUTE` | *facultatif* : `120` (c'est déjà la valeur par défaut) |
+
+Laisse **`REQUIRE_API_KEY` vide** pour l'instant. Clique sur *Save*, puis *Restart*. Le nom doit commencer exactement par `API_KEY_` : tout autre nom est ignoré. Une clé de moins de 32 caractères est refusée.
+
+**c. Vérifier chaque clé** (Terminal du Mac ; remplace `CLE_GDH` par la clé GDH, puis recommence avec la clé ATLAS) :
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://moteur.humanatlas.fr/v1/upcoming -H "X-API-Key: CLE_GDH" -H "Content-Type: application/json" -d '{"chart":{"date":"2000-01-01","time":"12:00","time_precision":"exacte","tz":"Europe/Paris"}}'
+```
+
+- `200` : la clé est bonne.
+- `401` : la clé est fausse, ou la variable n'est pas enregistrée (après chaque changement : *Restart*).
+- `429` : trop de requêtes en une minute ; attends et réessaie.
+
+Pour vérifier qu'**une requête sans clé est refusée**, relance la même commande **sans** la partie `-H "X-API-Key: …"` : tu dois lire `401`.
+
+**d. Donner chaque clé à son site.** La clé GDH va dans les secrets du **serveur** de godesignhumain.fr (variable d'environnement, par exemple `ENGINE_API_KEY_GDH`), jamais dans la page web. Le site l'envoie dans l'en-tête `X-API-Key` à chaque appel. Même chose pour la clé ATLAS côté Human Atlas. Le moteur n'est appelé que par des serveurs : un appel depuis le navigateur d'un visiteur est refusé (`403`), et c'est voulu.
+
+**e. Terminer la transition (quand Atlas envoie sa nouvelle clé).** Quand l'app Human Atlas envoie sa clé dans l'en-tête `X-API-Key` (au lieu de `Authorization: Bearer`) et que tu l'as vérifié :
+
+1. cPanel → *Setup Python App* → ajoute la variable `REQUIRE_API_KEY` = `true` → *Save* → *Restart*.
+2. Vérifie qu'Atlas fonctionne toujours, et que l'**ancienne** clé répond maintenant `401`.
+3. Supprime la variable `ENGINE_API_KEY` (poubelle), puis *Restart*.
+
+En cas de souci, remets `REQUIRE_API_KEY` à vide : l'ancienne clé refonctionne aussitôt.
+
+**Changer ou révoquer une clé :** fabrique-en une nouvelle (étape a), remplace la valeur de la variable, *Restart*, puis mets la nouvelle clé dans le site concerné. L'ancienne cesse de marcher dès le redémarrage.
+
+**Bon à savoir :**
+- Limite : 120 requêtes par minute et par site. Au-delà, le moteur répond `429` avec le nombre de secondes à attendre (`Retry-After`). o2switch peut faire tourner plusieurs copies du moteur : la limite est tenue par copie, donc elle est un garde-fou, pas un compteur exact.
+- Le moteur n'écrit jamais de date, d'heure ni de lieu de naissance dans ses journaux.
+- Les ingressions (la frise) sont gardées en mémoire par jour : la première frise d'une année après un redémarrage prend environ une seconde, les suivantes sont instantanées. Redémarrer l'application vide cette mémoire.

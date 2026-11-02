@@ -9,7 +9,8 @@
 
 """Génère les cartes des 5 thèmes de référence, dans les deux habillages, et la carte
 d'exemple dans les deux thèmes de marque (atlas.svg, gdh.svg), avec et sans les flèches des
-variables (atlas-variables.svg, gdh-variables.svg).
+variables (atlas-variables.svg, gdh-variables.svg), puis avec un transit posé dessus (atlas-transit.svg,
+gdh-transit.svg).
 
     python -m exemples.generer   (depuis le dossier humandesign/)
 """
@@ -57,3 +58,19 @@ for theme in ("atlas", "gdh"):
     ElementTree.fromstring(svg)
     (here / f"{theme}-variables.svg").write_text(svg, encoding="utf-8")
     print(f"{theme}-variables.svg  OK ({len(svg) // 1024} Ko)")
+
+# Le transit posé sur la carte (route /v1/transit/chart) : même personne fictive, instant fixe.
+from datetime import timezone  # noqa: E402
+
+from hd.timeline import transit_on_chart  # noqa: E402
+
+AT = datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc)
+res = transit_on_chart(c, AT)
+for theme in ("atlas", "gdh"):
+    svg = render_bodygraph(
+        c, theme=theme, name="Exemple", uid="exemple", transit_gates={g["gate"] for g in res["activates"]["gates"]},
+        transit_centers=set(res["activates"]["centers_newly_defined"]),
+        transit_note="transit du 02/11/2026 à 12:00 UTC")
+    ElementTree.fromstring(svg)
+    (here / f"{theme}-transit.svg").write_text(svg, encoding="utf-8")
+    print(f"{theme}-transit.svg  OK ({len(svg) // 1024} Ko)")
