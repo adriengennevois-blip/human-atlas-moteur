@@ -21,7 +21,8 @@ Thèmes du bodygraph :
   atlas      Human Atlas : Design orange, Personnalité violet, fond « atmosphère »
   classique  code officiel : Design rouge, Personnalité noir, fond blanc
   composite  Human Atlas, une couleur par personne (réservé à /v1/composite)
-  gdh        GoDesignHumain : marbre, or et ciel nocturne
+  gdh        GoDesignHumain : exactement atlas, seules les couleurs changent (or et bleu nuit
+             à la place d'orange et de violet, fond ivoire et champagne)
 
 Les quatre flèches des variables (option « show_variables ») utilisent trois clés :
   variable_design        flèches de gauche (Design)
@@ -111,6 +112,8 @@ ATLAS = {
     "font_title": "'Instrument Serif', Georgia, serif",
     "font_text": "Jost, 'Helvetica Neue', Arial, sans-serif",
     "num_weights": (600, 500), "name_gradient": True,
+    # Dégradé du prénom et du filet de la légende (Design → Personnalité).
+    "name_from": "#e07a1f", "name_to": "#6b2fa3",
     "embed_fonts": True, "legend": True,
 }
 
@@ -121,40 +124,30 @@ COMPOSITE = {**ATLAS, "design": "#4F8A6B", "personality": "#B8476A",
              "design_text": "#4F8A6B", "personality_text": "#B8476A",
              "legend": False, "name_gradient": False}
 
-# GoDesignHumain : marbre ivoire, or (Design, l'inconscient) et bleu nuit (Personnalité,
-# le conscient) ; centres définis aux couleurs officielles. Les textes en couleur utilisent la teinte la plus foncée de chaque
-# dégradé, pour rester lisibles sur l'ivoire.
-# Veinage du fond.
-GDH_MARBLE = Marble("marbre", color=(0.55, 0.50, 0.42), opacity=0.08)
+# GoDesignHumain : le thème atlas, avec d'autres couleurs et rien d'autre. Même construction
+# (halo doux, silhouette lumineuse, orbites et points, lueur des centres, formes, contours,
+# polices, tailles, pastilles, flèches des variables, titre, légende) : seules les clés de
+# couleur ci-dessous sont remplacées, tout le reste vient d'ATLAS.
+#   orange (Design)        → or  : #B8893B (traits, pastilles, flèches), #8C6A2E (textes)
+#   violet (Personnalité)  → bleu nuit : #2B3550 (textes et traits)
+#   fond lavande           → ivoire et champagne (centre du halo, bords, voile)
+#   canaux inactifs        → beige chaud
+# Les autres couleurs d'atlas (centres, numéros de portes, texte courant) sont conservées.
 GDH = {
     **ATLAS,
-    "id_prefix": "gdh",
-    "design": Gradient("or", ((0, "#8C6A2E"), (1, "#6B5020"))),  # or bronze, assez foncé pour des numéros ivoire
-    "personality": Gradient("nuit", ((0, "#2B3550"), (1, "#141A2B"))),
+    "id_prefix": "gdh",  # préfixe des identifiants internes (pas une couleur) : voir hd.bodygraph
+    "design": "#B8893B", "personality": "#2B3550",
     "design_text": "#8C6A2E", "personality_text": "#2B3550",
-    "both": "stripes", "both_dash": "3.2 3.2",
-    "channel_inactive": "#E6DED0", "channel_edge": None,
-    "center_open": "#FBF8F1", "center_open_stroke": "#C9A45C",
-    "center_stroke": "#8C6A2E",
-    # Centres définis : couleurs officielles Human Design, celles du thème classique.
-    "center_defined": CLASSIQUE["center_defined"],
-    "center_glow": False, "center_texture": None,
-    # Pastilles des portes actives : aplats (pas de dégradé), cerclage ivoire pour se
-    # détacher du centre dessous, numéro ivoire.
-    "gate_on": None, "gate_text_on": "#FBF8F1",
-    "gate_pastille": {"design": "#7A5C24", "personality": "#2B3550"},
-    "gate_ring": ("#FBF8F1", 1.5),
-    # Fin contour sombre sous un numéro ivoire, là où le fond seul ne suffit pas.
-    "text_halo": {"color": "#1A1408", "opacity": 0.6, "width": 1.5},
-    # Portes inactives : brun sur un centre ouvert ; sur un centre défini, ivoire ou brun,
-    # le plus contrasté avec la couleur du centre (« auto », voir text_on). Un numéro
-    # ivoire qui reste sous 4,5 reçoit le contour sombre.
-    "gate_text": "#3A3326", "gate_text_defined_opacity": None,
-    "gate_text_defined": "auto", "text_choices": ("#FBF8F1", "#3A3326"),
-    "text": "#3A3326", "muted": "#6E6452",
-    # Flèches des variables : or bronze (Design) et bleu nuit (Personnalité), comme les textes.
-    "variable_design": "#8C6A2E", "variable_personality": "#2B3550", "variable_label": "#6E6452",
-    "background": {"kind": "marble", "color": "#F6F1E7", "texture": GDH_MARBLE},
+    "name_from": "#B8893B", "name_to": "#2B3550",
+    "channel_inactive": "#E6DED0",
+    "variable_design": "#B8893B", "variable_personality": "#2B3550",
+    "background": {
+        **ATLAS["background"],
+        "top": "#F6F1E7", "bottom": "#EFE6D3",   # voile général, bords
+        "halo": "#FFFDF8", "veil": "#FFFDF8",     # centre du halo, silhouette lumineuse
+        "orbit": "#2B3550",                       # orbites (côté Personnalité)
+        "dot_violet": "#2B3550", "dot_orange": "#B8893B",  # points : Personnalité, Design
+    },
     "legend_design": "or", "legend_personality": "bleu nuit",
 }
 

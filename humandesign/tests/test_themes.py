@@ -18,7 +18,7 @@ import pytest
 from hd.bodygraph import render_bodygraph
 from hd.chart import build_chart
 from hd.data import GATE_CENTER
-from hd.themes import CLASSIQUE, GDH, THEMES, contrast
+from hd.themes import ATLAS, CLASSIQUE, GDH, THEMES, contrast
 from hd.timeutil import local_to_utc
 
 from .test_api import KEY, call
@@ -76,28 +76,48 @@ def test_gdh_is_valid_svg(gdh):
     assert root.tag == "{http://www.w3.org/2000/svg}svg"
 
 
+ATLAS_BRAND = {"#e07a1f", "#6b2fa3", "#d6cee2", "#efebf3", "#dcd6e2", "#7b22aa", "#cd7a18"}  # orange, violet, lavande
+GDH_COLOR_KEYS = {"design", "personality", "design_text", "personality_text", "name_from", "name_to",
+                  "channel_inactive", "variable_design", "variable_personality", "legend_design",
+                  "legend_personality", "background", "id_prefix"}
+GDH_BG_COLOR_KEYS = {"top", "bottom", "halo", "veil", "orbit", "dot_violet", "dot_orange"}
+
+
+def test_gdh_inherits_atlas_and_overrides_only_colors():
+    changed = {k for k in GDH if k not in ATLAS or GDH[k] != ATLAS[k]}
+    assert changed <= GDH_COLOR_KEYS, changed - GDH_COLOR_KEYS
+    assert set(GDH) - {"id_prefix"} == set(ATLAS)  # aucune option ajoutée ni retirée (id_prefix : identifiants, pas une couleur)
+    bg_changed = {k for k in GDH["background"] if GDH["background"][k] != ATLAS["background"][k]}
+    assert bg_changed <= GDH_BG_COLOR_KEYS and GDH["background"]["kind"] == "atmosphere"
+    # tout ce qui change est une couleur « #rrggbb » (ou le nom de la couleur dans la légende)
+    for k in changed - {"background", "id_prefix", "legend_design", "legend_personality"}:
+        assert re.fullmatch(r"#[0-9a-fA-F]{6}", GDH[k]), k
+    # centres, contours, polices, tailles : repris d'atlas tels quels
+    for k in ("center_defined", "center_open", "center_open_stroke", "center_stroke", "center_glow", "text",
+              "muted", "gate_text", "gate_text_on", "font_num", "font_title", "font_text", "num_weights",
+              "variable_label"):
+        assert GDH[k] == ATLAS[k], k
+
+
 def test_gdh_colors(gdh):
-    for color in ("#F6F1E7", "#C9A45C", "#8C6A2E", "#2B3550", "#141A2B", "#FBF8F1", "#E6DED0", "#3A3326"):
+    for color in ("#B8893B", "#8C6A2E", "#2B3550", "#E6DED0", "#FFFDF8", "#EFE6D3", "#F6F1E7"):
         assert color in gdh, color
-    assert "#E9D7A4" not in gdh and "#9C7A35" not in gdh  # plus de dégradé or sur les centres
-    for color in set(HEX.findall(gdh)):  # aucune couleur d'Atlas ne déborde
-        assert color.lower() not in {"#e07a1f", "#6b2fa3", "#d6cee2", "#efebf3", "#7b22aa"}, color
+    found = {c.lower() for c in HEX.findall(gdh)}
+    assert not found & ATLAS_BRAND, found & ATLAS_BRAND  # ni orange, ni violet, ni lavande d'atlas
+    assert "<feTurbulence" not in gdh and "marbre" not in gdh  # plus de fond marbré
 
 
-def test_gdh_marble_veins(gdh):
-    turb = re.search(r'<feTurbulence type="fractalNoise" baseFrequency="([\d.]+)" numOctaves="(\d)"', gdh)
-    assert turb and float(turb.group(1)) == pytest.approx(0.012) and turb.group(2) == "3"
-    assert "<feColorMatrix" in gdh
-    table = re.search(r'tableValues="([^"]+)"', gdh).group(1)
-    assert max(float(v) for v in table.split()) == pytest.approx(0.08)  # veines à 8 % (un tiers de moins qu'à 12 %)
-    # veinage sur le fond seulement (centres définis en aplat)
-    assert gdh.count("url(#gdh-hdtest0001-marbre)") == 1
+def test_gdh_defined_centers_use_the_atlas_colors(gdh):
+    for center in _chart(1).defined_centers:
+        color = ATLAS["center_defined"][center]
+        assert re.search(rf'id="gdh-hdtest0001-center-{center}" d="[^"]+" fill="{color}" stroke="#ffffff"', gdh), center
+    assert 'filter="url(#gdh-hdtest0001-glow)"' in gdh  # même lueur autour des centres définis
 
 
 def test_gdh_ids_are_prefixed(gdh):
     ids = IDS.findall(gdh)
     assert ids and all(i.startswith("gdh-hdtest0001-") for i in ids)
-    assert {"gdh-hdtest0001-or", "gdh-hdtest0001-nuit", "gdh-hdtest0001-marbre"} <= set(ids)
+    assert {"gdh-hdtest0001-bg", "gdh-hdtest0001-halo", "gdh-hdtest0001-glow"} <= set(ids)
     assert len(ids) == len(set(ids)) and set(REFS_TO_IDS.findall(gdh)) <= set(ids)
 
 
@@ -114,56 +134,60 @@ def test_gdh_channel_on_both_sides_is_half_gold_half_night_blue():
     assert both
     for g in both:
         strokes = re.findall(rf'class="gate-{g}" d="[^"]+" stroke="([^"]+)"[^>]*?(stroke-dasharray="[^"]+")?/>', gdh)
-        assert strokes[:2] == [("url(#gdh-hdtest0001-or)", ""),
-                               ("url(#gdh-hdtest0001-nuit)", f'stroke-dasharray="{GDH["both_dash"]}"')]
+        assert strokes[:2] == [("#B8893B", ""), ("#2B3550", f'stroke-dasharray="{GDH["both_dash"]}"')]
 
 
-def test_gdh_defined_centers_use_the_official_colors(gdh):
-    for center in _chart(1).defined_centers:
-        color = CLASSIQUE["center_defined"][center]
-        assert re.search(rf'id="gdh-hdtest0001-center-{center}" d="[^"]+" fill="{color}" stroke="#8C6A2E"', gdh), center
-    assert re.search(r'id="gdh-hdtest0001-center-head" d="[^"]+" fill="#FBF8F1" stroke="#C9A45C"', gdh)  # ouvert
+# ---------------------------------------------------------------- gdh = atlas, aux couleurs près
+
+COLOR = re.compile(r"#[0-9a-fA-F]{6}\b")
+BRAND_WORDS = re.compile(r">(orange|violet|or|bleu nuit)</tspan>")  # légende : nom de la couleur du thème
 
 
-HALO = 'stroke="#1A1408" stroke-opacity="0.6" stroke-width="1.5" stroke-linejoin="round" paint-order="stroke"'
+def _colorless(svg):
+    """Le SVG sans aucune valeur de couleur : ne reste que la structure (formes, positions, tailles, textes)."""
+    svg = COLOR.sub("#", svg)
+    svg = re.sub(r'(?<=id=")gdh-|(?<=url\(#)gdh-', "", svg)  # préfixe des identifiants (pas une couleur)
+    return BRAND_WORDS.sub(">couleur</tspan>", svg)
 
 
+@pytest.mark.parametrize("variables", [False, True])
 @pytest.mark.parametrize("i", range(1, 4))
-def test_gdh_gate_pastilles_and_numbers(i):
+def test_gdh_and_atlas_differ_only_by_color_values(i, variables):
+    """Même structure, mêmes formes, mêmes positions : seules les valeurs de couleur diffèrent."""
     c = _chart(i)
-    svg = render_bodygraph(c, theme="gdh", uid="u")
-    flat = {"design": "#7A5C24", "personality": "#2B3550"}
-    for g, sides in c.active_gates.items():  # pastilles : aplats, cerclage ivoire, numéro ivoire
-        text = re.search(rf'<text [^>]*font-size="8.4"[^>]*>{g}</text>', svg).group(0)
-        assert 'fill="#FBF8F1"' in text and (HALO in text) == (len(sides) == 2), g
-        x, y = re.search(r'x="([\d.]+)" y="([\d.]+)"', text).groups()
-        cy = f"{float(y) - 2.9:.1f}"
-        assert f'<circle cx="{x}" cy="{cy}" r="6.8" fill="none" stroke="#FBF8F1" stroke-width="1.5"/>' in svg, g
-        if len(sides) == 1:
-            assert f'<circle cx="{x}" cy="{cy}" r="6.8" fill="{flat[sides[0]]}"/>' in svg, g
-        else:
-            assert all(re.search(rf'<path d="M{x},[^"]+Z" fill="{flat[s]}"/>', svg) for s in sides), g
-    expected = {"head": ("#3A3326", False), "g": ("#3A3326", False), "heart": ("#FBF8F1", False),
-                "sacral": ("#FBF8F1", False), "ajna": ("#3A3326", False), "throat": ("#FBF8F1", True),
-                "spleen": ("#FBF8F1", True), "solar_plexus": ("#FBF8F1", True), "root": ("#FBF8F1", True)}
-    for g in range(1, 65):  # portes inactives
-        if g in c.active_gates:
-            continue
-        text = re.search(rf'<text [^>]*font-size="8"[^>]*>{g}</text>', svg).group(0)
-        center = GATE_CENTER[g]
-        if center not in c.defined_centers:
-            color, halo = "#3A3326", False
-        else:
-            color, halo = expected[center]
-        assert f'fill="{color}"' in text and (HALO in text) == halo, (g, center)
+    kw = dict(name="Exemple", uid="hdtest0001", show_variables=variables, variable_labels=variables)
+    atlas, gdh = render_bodygraph(c, theme="atlas", **kw), render_bodygraph(c, theme="gdh", **kw)
+    assert atlas != gdh and len(COLOR.findall(atlas)) == len(COLOR.findall(gdh))
+    assert _colorless(atlas) == _colorless(gdh)
 
 
-def test_gdh_contrasts():
-    """Contrastes WCAG des numéros ivoire sur les aplats (le contour sombre s'y ajoute)."""
-    ivory = "#FBF8F1"
-    assert contrast(ivory, "#7A5C24") >= 4.5 and contrast(ivory, "#2B3550") >= 4.5
-    assert contrast("#3A3326", CLASSIQUE["center_defined"]["head"]) >= 4.5
-    assert contrast(ivory, CLASSIQUE["center_defined"]["heart"]) >= 4.5
+def _contrast_pairs(theme):
+    """Couples (texte, fond) qui font la lisibilité d'une carte, tirés du thème."""
+    t, bg = THEMES[theme], THEMES[theme]["background"]
+    pairs = {
+        "numéro sur pastille Design": (t["gate_text_on"], t["design"]),
+        "numéro sur pastille Personnalité": (t["gate_text_on"], t["personality"]),
+        "numéro de porte inactive, centre ouvert": (t["gate_text"], t["center_open"]),
+    }
+    for center, fill in t["center_defined"].items():
+        pairs[f"numéro de porte inactive, centre {center} défini"] = (t["gate_text_defined"], fill)
+        pairs[f"numéro sur pastille, centre {center} (cerclage)"] = (t["gate_text_on"], fill)
+    for where in ("top", "bottom"):
+        for label, key in (("Design", "design_text"), ("Personnalité", "personality_text"),
+                           ("texte", "text"), ("légende", "muted")):
+            pairs[f"{label} sur le fond ({where})"] = (t[key], bg[where])
+    return pairs
+
+
+def test_gdh_readability_is_at_least_atlas():
+    """Numéros de portes, valeurs des planètes et textes : contraste WCAG au moins égal à celui d'atlas."""
+    atlas, gdh = _contrast_pairs("atlas"), _contrast_pairs("gdh")
+    assert atlas.keys() == gdh.keys()
+    for name in atlas:
+        assert contrast(*gdh[name]) >= contrast(*atlas[name]) - 1e-9, (name, contrast(*gdh[name]), contrast(*atlas[name]))
+    # les numéros blancs sur pastille : or et bleu nuit au moins aussi lisibles qu'orange et violet
+    assert contrast("#ffffff", GDH["design"]) >= contrast("#ffffff", ATLAS["design"])
+    assert contrast("#ffffff", GDH["personality"]) >= contrast("#ffffff", ATLAS["personality"])
 
 
 def test_themes_change_nothing_but_colors():
@@ -210,10 +234,3 @@ def test_api_unknown_theme_is_422(body):
 def test_theme_is_not_accepted_per_person():
     code, _ = call({"people": [PERSON, {**PERSON, "theme": "gdh"}]}, path="/v1/composite")
     assert code == 400
-
-
-def test_gdh_number_on_a_defined_center_is_the_most_contrasted():
-    from hd.themes import text_on
-    for center, color in CLASSIQUE["center_defined"].items():
-        chosen = text_on(color, GDH["text_choices"])
-        assert all(contrast(chosen, color) >= contrast(c, color) for c in GDH["text_choices"]), center

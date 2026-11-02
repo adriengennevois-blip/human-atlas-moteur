@@ -240,6 +240,19 @@ def test_svg_is_byte_identical_to_the_golden_without_the_option(theme, i):
     assert render_bodygraph(c, theme=theme, name="Exemple", uid="hdtest0001", variable_labels=True) == golden
 
 
+@pytest.mark.parametrize("i", range(1, 4))
+def test_atlas_with_arrows_is_byte_identical_to_the_golden(i):
+    """tests/golden/theme-atlas-variables-*.svg : produits avant que gdh devienne « atlas en d'autres couleurs »."""
+    svg = render_bodygraph(_chart(i), theme="atlas", name="Exemple", uid="hdtest0001",
+                           show_variables=True, variable_labels=True)
+    assert svg == (GOLDEN / f"theme-atlas-variables-{i}.svg").read_text(encoding="utf-8")
+
+
+def test_atlas_with_arrows_without_labels_is_byte_identical_to_the_golden():
+    svg = render_bodygraph(_chart(1), theme="atlas", name="Exemple", uid="hdtest0001", show_variables=True)
+    assert svg == (GOLDEN / "theme-atlas-variables-nolabels-1.svg").read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("skin", ["classique", "atlas"])
 @pytest.mark.parametrize("i", range(1, 6))
 def test_fictif_goldens_are_unchanged(skin, i):

@@ -579,7 +579,7 @@ def _caption(chart, name, s, uid):
     who = name or chart.name or ""
     if who and s.get("name_gradient"):  # prénom en dégradé orange → violet (Design → Personnalité)
         out.append(f'<defs><linearGradient id="{uid}-prenom" x1="0" x2="1">'
-                   f'<stop offset="0" stop-color="{s["design_text"]}"/><stop offset="1" stop-color="{s["personality_text"]}"/>'
+                   f'<stop offset="0" stop-color="{s["name_from"]}"/><stop offset="1" stop-color="{s["name_to"]}"/>'
                    f'</linearGradient></defs>'
                    f'<text x="{cx}" y="{y}" font-family="{title}" font-style="italic" font-size="30" '
                    f'text-anchor="middle" fill="url(#{uid}-prenom)">{_xml_text(who)}</text>')
@@ -590,7 +590,7 @@ def _caption(chart, name, s, uid):
         y += 20
     if s.get("legend"):  # filet orange → violet : rappelle les deux faces de la carte
         out.append(f'<defs><linearGradient id="{uid}-filet" x1="0" x2="1">'
-                   f'<stop offset="0" stop-color="{s["design_text"]}"/><stop offset="1" stop-color="{s["personality_text"]}"/>'
+                   f'<stop offset="0" stop-color="{s["name_from"]}"/><stop offset="1" stop-color="{s["name_to"]}"/>'
                    f'</linearGradient></defs>'
                    f'<rect x="{cx - 28}" y="{y - 6}" width="56" height="2" rx="1" fill="url(#{uid}-filet)"/>')
         y += 20

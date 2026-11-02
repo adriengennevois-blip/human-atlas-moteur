@@ -5,7 +5,7 @@ Ce moteur calcule une carte Human Design (un « bodygraph ») à partir d'une da
 Il fournit :
 - les activations Personnalité et Design des 13 corps : porte.ligne, avec ▲ exaltation, ▼ détriment et ★ juxtaposition, plus couleur, ton et base ;
 - les canaux, les centres définis, le type, la stratégie, l'autorité, le profil, la définition, la croix d'incarnation et les flèches des variables ;
-- un bodygraph en SVG, en deux thèmes de marque : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : marbre, or et bleu nuit), plus l'habillage `classique` (code officiel rouge et noir) ;
+- un bodygraph en SVG, en deux thèmes de marque : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : la même carte qu'`atlas` en or et bleu nuit, sur fond ivoire), plus l'habillage `classique` (code officiel rouge et noir) ;
 - une petite API web, que l'application Human Atlas appelle pour afficher la carte de chaque personne.
 
 Le moteur ne stocke rien : il calcule, répond, puis oublie.
@@ -111,7 +111,7 @@ curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer 
 
 Le détail des champs d'entrée et de sortie, et des codes d'erreur, se trouve dans [DEPLOIEMENT.md](humandesign/DEPLOIEMENT.md).
 
-**Thème de la carte (`"theme"`).** La carte SVG existe en deux thèmes de marque, qui ne changent que l'apparence (jamais le calcul) : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : fond marbre ivoire, centres définis aux couleurs officielles du Human Design, Design en or bronze, Personnalité en bleu nuit). Pour GoDesignHumain :
+**Thème de la carte (`"theme"`).** La carte SVG existe en deux thèmes de marque, qui ne changent que l'apparence (jamais le calcul) : `atlas` (Human Atlas, par défaut) et `gdh` (GoDesignHumain : exactement la carte `atlas`, même fond à halo doux, mêmes formes, polices, centres et flèches, avec pour seules différences ses couleurs : Design en or, Personnalité en bleu nuit, fond ivoire et champagne, canaux inactifs beige). Pour GoDesignHumain :
 
 ```bash
 curl -s -X POST https://moteur.humanatlas.fr/v1/chart -H "Authorization: Bearer $ENGINE_API_KEY" -H "Content-Type: application/json" -d '{"date":"2000-01-01","time":"12:00","time_precision":"exacte","place":"Paris, France","name":"Exemple","theme":"gdh"}'
