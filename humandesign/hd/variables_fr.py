@@ -97,3 +97,26 @@ VARIABLE_COLOR_SIDES = {
 
 TONE_SENSES = {1: ("Odorat", "Smell"), 2: ("Goût", "Taste"), 3: ("Vision extérieure", "Outer Vision"),
                4: ("Vision intérieure", "Inner Vision"), 5: ("Ressenti", "Feeling"), 6: ("Toucher", "Touch")}
+
+# ---------------------------------------------------------------- fiche de lecture (hd.reading)
+
+# À valider par Adrien. Identifiant de chaque flèche dans la fiche de lecture (« digestion.color »…).
+READING_IDS = {"determination": "digestion", "environment": "environment",
+               "motivation": "motivation", "perspective": "perspective"}
+
+# À valider par Adrien. Nom court de chaque rubrique d'une flèche.
+PART_NAMES_FR = {"orientation": "Orientation", "color": "Couleur", "tone": "Ton",
+                 "subcategory": "Sous-catégorie", "base": "Base"}
+
+# À valider par Adrien. Orientation de la flèche, en toutes lettres.
+ORIENTATION_NAMES_FR = {"left": "gauche", "right": "droite"}
+
+# CORRESPONDANCES À VALIDER PAR ADRIEN (le moteur n'invente rien) :
+#  - Sous-catégorie : Digestion et Environnement seulement (tables VARIABLE_COLOR_SIDES ci-dessus) :
+#    ton 1 à 3 → premier nom du couple, ton 4 à 6 → second. Motivation et Perspective n'ont pas
+#    de sous-catégorie : la fiche donne leur couleur opposée (1↔4, 2↔5, 3↔6).
+#  - Nom du ton : la table TONE_SENSES (Odorat, Goût, Vision extérieure, Vision intérieure,
+#    Ressenti, Toucher) est celle déjà livrée pour les quatre flèches ; classiquement, ces
+#    « sens » se rattachent à la Digestion. Pour Environnement, Motivation et Perspective,
+#    le nom du ton est donc donné mais marqué à valider.
+TONE_NAME_TO_VALIDATE = ("environment", "motivation", "perspective")

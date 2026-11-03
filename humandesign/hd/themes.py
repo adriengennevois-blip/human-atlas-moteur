@@ -28,6 +28,14 @@ Les quatre flèches des variables (option « show_variables ») utilisent trois 
   variable_design        flèches de gauche (Design)
   variable_personality   flèches de droite (Personnalité)
   variable_label         petit libellé sous chaque flèche (option « variable_labels »)
+
+Le transit posé sur une carte (hd.timeline, route /v1/transit/chart) se distingue des activations
+de la naissance par un style propre, en pointillé :
+  transit                couleur des activations du transit (ni Design, ni Personnalité)
+  transit_dash           pointillé posé sur la moitié de canal activée par le transit
+  transit_ring           épaisseur de l'anneau autour du numéro d'une porte activée par le transit
+  transit_center_dash    contour en tirets d'un centre défini seulement le temps du transit
+  transit_center_opacity teinte de ce centre
 """
 from dataclasses import dataclass
 
@@ -76,6 +84,8 @@ CLASSIQUE = {
     "gate_text": "#5c5c5c", "gate_text_defined": "#1b1b1b", "gate_text_defined_opacity": 0.62,
     "text": "#1b1b1b", "muted": "#6b6b6b",
     "variable_design": "#c62828", "variable_personality": "#1b1b1b", "variable_label": "#6b6b6b",
+    "transit": "#1565c0", "transit_dash": "0.1 5", "transit_ring": 1.6,
+    "transit_center_dash": "5 3", "transit_center_opacity": 0.16,
     "background": {"kind": "plain", "color": "#ffffff"},
     "font_num": SANS, "font_title": SANS, "font_text": SANS,
     "embed_fonts": False, "legend": False,
@@ -101,6 +111,9 @@ ATLAS = {
     "gate_text": "#8a8096", "gate_text_defined": "#2a2333", "gate_text_defined_opacity": 0.62,
     "text": "#2a2333", "muted": "#5d4f6d",
     "variable_design": "#e07a1f", "variable_personality": "#6b2fa3", "variable_label": "#5d4f6d",
+    # Transit : turquoise, distinct de l'orange, du violet et des centres ; gdh l'hérite d'atlas.
+    "transit": "#0f8b8d", "transit_dash": "0.1 5", "transit_ring": 1.6,
+    "transit_center_dash": "5 3", "transit_center_opacity": 0.18,
     "background": {
         "kind": "atmosphere", "top": "#efebf3", "bottom": "#dcd6e2", "halo": "#ffffff",
         "orbit": "#7b22aa", "dot_violet": "#7b22aa", "dot_orange": "#cd7a18", "veil": "#ffffff",
