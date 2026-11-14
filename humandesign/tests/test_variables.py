@@ -382,3 +382,134 @@ def test_text_file_is_complete_and_flagged_for_review():
 def test_french_color_names_of_the_digestion_arrow():
     assert [fr for fr, _ in D.VARIABLE_COLOR_NAMES["determination"].values()] == \
         ["Appétit", "Goût", "Soif", "Toucher", "Son", "Lumière"]
+
+
+# ---------------------------------------------------------------- une partie des flèches seulement
+
+def _drawn(svg):
+    return {n for n in NAMES if f"variable-{n}" in svg}
+
+
+@pytest.mark.parametrize("theme", PUBLIC_THEMES)
+def test_only_some_arrows(theme):
+    c = _chart(1)
+    svg = render_bodygraph(c, theme=theme, name="E", uid="u", show_variables=["perspective", "motivation"], variable_labels=True)
+    ElementTree.fromstring(svg)
+    assert _drawn(svg) == {"perspective", "motivation"}
+    # mêmes flèches, au même endroit et du même dessin que dans la carte complète
+    full = render_bodygraph(c, theme=theme, name="E", uid="u", show_variables=True, variable_labels=True)
+    _, part_groups = _groups(svg)
+    _, full_groups = _groups(full)
+    for n in ("perspective", "motivation"):
+        assert ElementTree.tostring(part_groups[n]) == ElementTree.tostring(full_groups[n])
+
+
+def test_list_of_all_four_equals_true_and_empty_list_equals_false():
+    c = _chart(1)
+    kw = dict(theme="gdh", name="E", uid="u", variable_labels=True)
+    assert render_bodygraph(c, show_variables=list(NAMES), **kw) == render_bodygraph(c, show_variables=True, **kw)
+    assert render_bodygraph(c, show_variables=[], **kw) == render_bodygraph(c, show_variables=False, **kw)
+
+
+def test_unknown_variable_name_is_refused_by_the_renderer():
+    with pytest.raises(ValueError):
+        render_bodygraph(_chart(1), theme="gdh", uid="u", show_variables=["digestion"])
+
+
+def test_api_accepts_a_list_of_arrows():
+    code, r = call({**API_FICTIF_1, "theme": "gdh", "show_variables": ["perspective", "motivation"], "variable_labels": True})
+    assert code == 200 and _drawn(r["svg"]) == {"perspective", "motivation"}
+    code, r = call({"chart": API_FICTIF_1, "at": "2026-11-02T12:00:00Z", "theme": "gdh",
+                    "show_variables": ["perspective", "motivation"]}, path="/v1/transit/chart")
+    assert code == 200 and _drawn(r["svg"]) == {"perspective", "motivation"}
+
+
+@pytest.mark.parametrize("value", [["digestion"], ["perspective", "perspective"], [1], "perspective", {"perspective": True}])
+def test_api_refuses_bad_lists(value):
+    code, r = call({**API_FICTIF_1, "show_variables": value})
+    assert code == 400 and r["error"]["code"] == "invalid_field"
+
+
+# ---------------------------------------------------------------- mode épuré (layout « minimal »)
+
+def _texts(svg):
+    return ElementTree.fromstring(svg).iter(f"{SVG_NS}text")
+
+
+@pytest.mark.parametrize("palette", ["nuit", "jour"])
+def test_minimal_layout_keeps_only_the_bodygraph_and_the_planet_columns(palette):
+    c = _chart(1)
+    svg = render_bodygraph(c, layout="minimal", palette=palette, name="Exemple", uid="u")
+    root = ElementTree.fromstring(svg)
+    assert root.get("viewBox") == "0 30 616 642"
+    texts = list(_texts(svg))
+    assert len(texts) == 2 * len(D.PLANETS)  # les deux colonnes, rien d'autre (ni portes, ni titres, ni légende)
+    assert all(re.search(r"\d+\.\d", "".join(t.itertext())) for t in texts)
+    words = " ".join("".join(t.itertext()) for t in texts)
+    assert "Exemple" not in svg and "Design" not in words and "Personnalité" not in words
+    assert "variable-" not in svg and "-glow" not in svg and "-halo" not in svg and "<ellipse" not in svg
+    assert not any(r.get("width") == "616" for r in root.iter(f"{SVG_NS}rect"))  # pas de fond : transparent
+    for center in D.CENTERS:  # les neuf centres sont là
+        assert f'center-{center}"' in svg
+
+
+def test_minimal_palettes_differ_and_keep_the_defined_centre_colours():
+    from hd.themes import GDH, MINIMAL_PALETTES
+    c = _chart(1)
+    nuit = render_bodygraph(c, layout="minimal", palette="nuit", uid="u")
+    jour = render_bodygraph(c, layout="minimal", palette="jour", uid="u")
+    assert nuit != jour
+    assert MINIMAL_PALETTES["jour"]["channel_inactive"] == "#E0CFB3" and MINIMAL_PALETTES["jour"]["center_open"] == "#FFFAF1"
+    for pal in MINIMAL_PALETTES.values():
+        assert pal["center_defined"] == GDH["center_defined"]
+
+
+def test_minimal_layout_is_refused_with_arrows_or_unknown_palette():
+    c = _chart(1)
+    with pytest.raises(ValueError):
+        render_bodygraph(c, layout="minimal", palette="midi", uid="u")
+    with pytest.raises(ValueError):
+        render_bodygraph(c, layout="minimal", show_variables=True, uid="u")
+    with pytest.raises(ValueError):
+        render_bodygraph(c, layout="large", uid="u")
+
+
+def test_default_layout_is_unchanged():
+    c = _chart(1)
+    kw = dict(theme="gdh", name="E", uid="u")
+    assert render_bodygraph(c, layout="full", **kw) == render_bodygraph(c, **kw)
+    assert render_bodygraph(c, layout="full", palette="jour", **kw) == render_bodygraph(c, **kw)
+
+
+def test_api_minimal_layout():
+    code, r = call({**API_FICTIF_1, "layout": "minimal", "palette": "jour"})
+    assert code == 200 and 'viewBox="0 30 616 642"' in r["svg"] and "#E0CFB3" in r["svg"]
+    code, r = call({**API_FICTIF_1, "layout": "minimal"})  # nuit par défaut
+    assert code == 200 and "#5C3F2E" in r["svg"]
+    _, plain = call({**API_FICTIF_1})
+    _, full = call({**API_FICTIF_1, "layout": "full"})
+    assert 'viewBox="0 0 616 840"' in plain["svg"] and 'viewBox="0 0 616 840"' in full["svg"]
+
+
+@pytest.mark.parametrize("body", [
+    {"layout": "large"}, {"layout": "minimal", "palette": "midi"}, {"palette": "jour"},
+    {"layout": "minimal", "show_variables": True}, {"layout": "minimal", "show_variables": ["perspective"]},
+])
+def test_api_refuses_bad_minimal_options(body):
+    code, r = call({**API_FICTIF_1, **body})
+    assert code == 400 and r["error"]["code"] == "invalid_field"
+
+
+def test_minimal_options_are_refused_on_other_routes():
+    for field, value in (("layout", "minimal"), ("palette", "nuit")):
+        code, r = call({"people": [{**API_FICTIF_1, field: value}, API_FICTIF_1]}, path="/v1/composite")
+        assert code == 400 and r["error"]["code"] == "unknown_field"
+
+
+def test_minimal_layout_numbers_are_readable_on_a_phone():
+    # 350 px de large sur un téléphone : 20 / 616 × 350 ≈ 11,4 px (au moins 11 px demandés)
+    svg = render_bodygraph(_chart(1), layout="minimal", palette="jour", uid="u")
+    sizes = {float(x) for x in re.findall(r'<tspan[^>]*font-size="([\d.]+)"[^>]*>\d+\.\d', svg)}
+    assert sizes == {20.0} and 20 / 616 * 350 >= 11
+    full = render_bodygraph(_chart(1), theme="gdh", uid="u")
+    assert {float(x) for x in re.findall(r'<tspan[^>]*font-size="([\d.]+)"[^>]*>\d+\.\d', full)} == {15.0}

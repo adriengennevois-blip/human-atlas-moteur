@@ -38,7 +38,7 @@ from html import escape
 from . import data as D
 from . import variables_fr as VF
 from .precision import variables as chart_variables
-from .themes import MIN_CONTRAST, THEMES, Gradient, Marble, contrast, solid, text_on
+from .themes import MIN_CONTRAST, MINIMAL_PALETTES, THEMES, Gradient, Marble, contrast, solid, text_on
 
 # --------------------------------------------------------------------------- gabarit
 
@@ -186,6 +186,8 @@ CHANNEL_CURVES = {k: (_S(*a), _S(*b)) for k, (a, b) in _CURVES_REF.items()}
 
 OFFSET = (108, 24)         # position du bodygraph dans la page
 PAGE_W, PAGE_H = 616, 840  # taille de la page (avec colonnes et légende)
+MINIMAL_NUM, MINIMAL_GLYPH = 20, 17  # mode épuré : taille des porte.ligne et des symboles des colonnes
+MINIMAL_Y, MINIMAL_H = 30, 642  # mode épuré : cadré du haut des colonnes au bas du bodygraph
 
 
 def _centroid(pts):
@@ -481,6 +483,8 @@ class _Paints:
 
 def _background(s, uid, paint):
     bg = s["background"]
+    if bg["kind"] == "none":  # fond transparent (mode épuré)
+        return ""
     if bg["kind"] == "plain":
         return f'<rect width="{PAGE_W}" height="{PAGE_H}" fill="{bg["color"]}"/>'
     if bg["kind"] == "marble":
@@ -527,27 +531,28 @@ def _atmosphere(bg, uid):
            C{116 + ox},{90 + oy} {132 + ox},{0 + oy} {200 + ox},{0 + oy} Z"/>"""
 
 
-def _planet_columns(chart, s):
+def _planet_columns(chart, s, headings=True, size=15, glyph_size=13):
     if chart is None or not getattr(chart, "design", None):
         return ""
     num, title = s["font_num"], s["font_title"]
     w = f' font-weight="{s["num_weights"][1]}"' if "num_weights" in s else ""
     out = []
     y0, step = 70 + OFFSET[1], 34
-    out.append(f'<text x="22" y="{y0 - 30}" font-family="{title}" font-style="italic" font-size="14" '
-               f'fill="{s["design_text"]}">Design</text>')
-    out.append(f'<text x="{PAGE_W - 22}" y="{y0 - 30}" font-family="{title}" font-style="italic" '
-               f'font-size="14" text-anchor="end" fill="{s["personality_text"]}">Personnalité</text>')
+    if headings:
+        out.append(f'<text x="22" y="{y0 - 30}" font-family="{title}" font-style="italic" font-size="14" '
+                   f'fill="{s["design_text"]}">Design</text>')
+        out.append(f'<text x="{PAGE_W - 22}" y="{y0 - 30}" font-family="{title}" font-style="italic" '
+                   f'font-size="14" text-anchor="end" fill="{s["personality_text"]}">Personnalité</text>')
     for i, planet in enumerate(D.PLANETS):
         y = y0 + i * step
         d, p = chart.design[planet], chart.personality[planet]
         glyph = escape(D.PLANET_GLYPHS[planet])
         out.append(f'<text x="22" y="{y}" fill="{s["design_text"]}">'
-                   f'<tspan font-family="{SYMBOLS}" font-size="13">{glyph}</tspan>'
-                   f'<tspan dx="7" font-family="{num}" font-size="15"{w}>{d.gate}.{d.line}</tspan></text>')
+                   f'<tspan font-family="{SYMBOLS}" font-size="{glyph_size}">{glyph}</tspan>'
+                   f'<tspan dx="7" font-family="{num}" font-size="{size}"{w}>{d.gate}.{d.line}</tspan></text>')
         out.append(f'<text x="{PAGE_W - 22}" y="{y}" text-anchor="end" fill="{s["personality_text"]}">'
-                   f'<tspan font-family="{num}" font-size="15"{w}>{p.gate}.{p.line}</tspan>'
-                   f'<tspan dx="7" font-family="{SYMBOLS}" font-size="13">{glyph}</tspan></text>')
+                   f'<tspan font-family="{num}" font-size="{size}"{w}>{p.gate}.{p.line}</tspan>'
+                   f'<tspan dx="7" font-family="{SYMBOLS}" font-size="{glyph_size}">{glyph}</tspan></text>')
     return "\n  ".join(out)
 
 
@@ -645,12 +650,32 @@ def _arrow_points(cx, cy, orient):
             (neck, cy + sh), (tail, cy + sh)]
 
 
-def _variables(chart, s, labels: bool) -> str:
-    """Les quatre flèches, couleurs prises dans le thème (variable_design / variable_personality)."""
+VARIABLE_NAMES = tuple(name for name, _, _ in VAR_LAYOUT)
+
+
+def variables_to_draw(show_variables) -> frozenset:
+    """Flèches à dessiner : True → les quatre, False / None → aucune, ou une liste de noms
+    (« determination », « environment », « perspective », « motivation »)."""
+    if show_variables is True:
+        return frozenset(VARIABLE_NAMES)
+    if not show_variables:
+        return frozenset()
+    names = frozenset(show_variables)
+    unknown = names - set(VARIABLE_NAMES)
+    if unknown:
+        raise ValueError(f"variables inconnues : {', '.join(sorted(unknown))}")
+    return names
+
+
+def _variables(chart, s, labels: bool, only: frozenset = frozenset(VARIABLE_NAMES)) -> str:
+    """Les flèches demandées (les quatre par défaut), couleurs prises dans le thème
+    (variable_design / variable_personality). Une flèche absente laisse sa place vide."""
     cx0 = OFFSET[0] + 200                          # axe du bodygraph (et de la Tête)
     data = chart_variables(chart)
     out = []
     for name, row, side in VAR_LAYOUT:
+        if name not in only:
+            continue
         v = data[name]
         cx = cx0 + (-VAR_AXIS_DX if side == "design" else VAR_AXIS_DX)
         cy = VAR_ROW_Y + row * VAR_ROW_PITCH
@@ -678,7 +703,8 @@ def new_uid() -> str:
 def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None, name=None,
                      show_planets=True, show_caption=True, uid=None,
                      show_variables=False, variable_labels=False,
-                     transit_gates=None, transit_centers=None, transit_note=None) -> str:
+                     transit_gates=None, transit_centers=None, transit_note=None,
+                     layout="full", palette="nuit") -> str:
     """Rend le bodygraph en SVG.
 
     chart : objet Chart du moteur (hd.chart.build_chart). Ou bien active_gates :
@@ -692,17 +718,34 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
     Un thème qui a un id_prefix le place devant (ex. « gdh-hd1a2b3c4d »).
 
     show_variables : dessine les quatre flèches des variables de part et d'autre de la Tête, à sa
-    hauteur (deux à gauche, deux à droite). Le cadre ne change pas. Faux par défaut : la carte
+    hauteur (deux à gauche, deux à droite). Une liste de noms (ex. ["perspective", "motivation"])
+    ne dessine que celles-ci, à leur place habituelle. Le cadre ne change pas. Faux par défaut : la carte
     est alors identique, à l'octet, à celle d'avant cette option. Demande un thème calculé
     (chart). variable_labels : ajoute le titre sous chaque flèche (sans effet si show_variables
     est faux).
+
+    layout « minimal » : le bodygraph et les deux colonnes de planètes (porte.ligne), et rien
+    d'autre (ni numéros de portes, ni halo, orbites, titres, légende, prénom ou flèches), sur fond
+    transparent, cadré au plus près. palette : « nuit » ou « jour » (MINIMAL_PALETTES). Avec
+    layout « full » (par défaut), le rendu est inchangé.
 
     transit_gates : portes activées par un transit (ensemble de numéros) ; transit_centers : centres
     qu'il définit le temps du transit ; transit_note : phrase de légende. Le dessin ne calcule rien :
     ces données viennent de hd.timeline.transit_on_chart. Rien n'est dessiné sans elles : la carte est
     alors identique, à l'octet, à celle d'avant. Style : clés « transit… » du thème (pointillé, anneau).
     """
-    s = THEMES[theme or skin]
+    if layout not in ("full", "minimal"):
+        raise ValueError("layout doit valoir full ou minimal")
+    minimal = layout == "minimal"
+    if minimal:
+        if palette not in MINIMAL_PALETTES:
+            raise ValueError("palette doit valoir nuit ou jour")
+        if show_variables or transit_gates or transit_centers:
+            raise ValueError("le mode épuré ne dessine ni flèches ni transit")
+        s = MINIMAL_PALETTES[palette]
+        show_planets, show_caption = True, False
+    else:
+        s = THEMES[theme or skin]
     uid = uid or new_uid()
     if s.get("id_prefix"):
         uid = f"{s['id_prefix']}-{uid}"
@@ -711,7 +754,8 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
         active_gates = chart.active_gates
     if active_gates is None:
         raise ValueError("fournir chart ou active_gates")
-    if show_variables and chart is None:
+    to_draw = variables_to_draw(show_variables)
+    if to_draw and chart is None:
         raise ValueError("show_variables demande un thème calculé (chart), pas seulement des portes")
     active, channels, defined = derive(active_gates)
     if chart is not None:  # garde-fou : le dessin doit dire la même chose que le moteur
@@ -721,8 +765,9 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
     paint = _Paints(uid)
     design, personality = paint(s["design"]), paint(s["personality"])
     w = 6.2
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {PAGE_W} {PAGE_H}" '
-             f'width="{PAGE_W}" height="{PAGE_H}" font-family="{FONT}" role="img" '
+    top, page_h = (MINIMAL_Y, MINIMAL_H) if minimal else (0, PAGE_H)
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {top} {PAGE_W} {page_h}" '
+             f'width="{PAGE_W}" height="{page_h}" font-family="{FONT}" role="img" '
              f'aria-label="Bodygraph Human Design"'
              # Polices embarquées : positions exactes des lettres, sans arrondi à petite taille.
              + (' text-rendering="geometricPrecision">' if s.get("embed_fonts") else '>')]
@@ -791,10 +836,10 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
                          f'fill-opacity="{s["transit_center_opacity"]}" stroke="{s["transit"]}" stroke-width="1.8" '
                          f'stroke-dasharray="{s["transit_center_dash"]}"/>')
 
-    # 4. Numéros de portes.
+    # 4. Numéros de portes (absents du mode épuré).
     num = s["font_num"]
     w_on, w_off = s.get("num_weights", (700, 500))
-    for g in sorted(GATE_POS):
+    for g in ([] if minimal else sorted(GATE_POS)):
         x, y = gate_label(g)
         x, y = x + OFFSET[0], y + OFFSET[1]
         if g in active:
@@ -836,10 +881,12 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
             x, y = gate_label(g)
             parts.append(f'<circle class="transit-ring-{g}" cx="{x + OFFSET[0]:.1f}" cy="{y + OFFSET[1]:.1f}" r="9.6" '
                          f'fill="none" stroke="{s["transit"]}" stroke-width="{s["transit_ring"]}"/>')
-    if show_variables:
-        parts.append(_variables(chart, s, variable_labels))
+    if to_draw:
+        parts.append(_variables(chart, s, variable_labels, to_draw))
     if show_planets:
-        parts.append(_planet_columns(chart, s))
+        # Mode épuré : chiffres agrandis (20 sur 616 de large, soit au moins 11 px sur un téléphone de 350 px).
+        parts.append(_planet_columns(chart, s, headings=False, size=MINIMAL_NUM, glyph_size=MINIMAL_GLYPH)
+                     if minimal else _planet_columns(chart, s))
     if show_caption:
         parts.append(_caption(chart, name, s, uid, transit_note))
     parts.insert(defs_at, paint.block())
