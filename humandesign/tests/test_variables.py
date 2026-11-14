@@ -428,3 +428,79 @@ def test_api_accepts_a_list_of_arrows():
 def test_api_refuses_bad_lists(value):
     code, r = call({**API_FICTIF_1, "show_variables": value})
     assert code == 400 and r["error"]["code"] == "invalid_field"
+
+
+# ---------------------------------------------------------------- mode épuré (layout « minimal »)
+
+def _texts(svg):
+    return ElementTree.fromstring(svg).iter(f"{SVG_NS}text")
+
+
+@pytest.mark.parametrize("palette", ["nuit", "jour"])
+def test_minimal_layout_keeps_only_the_bodygraph_and_the_planet_columns(palette):
+    c = _chart(1)
+    svg = render_bodygraph(c, layout="minimal", palette=palette, name="Exemple", uid="u")
+    root = ElementTree.fromstring(svg)
+    assert root.get("viewBox") == "0 30 616 642"
+    texts = list(_texts(svg))
+    assert len(texts) == 2 * len(D.PLANETS)  # les deux colonnes, rien d'autre (ni portes, ni titres, ni légende)
+    assert all(re.search(r"\d+\.\d", "".join(t.itertext())) for t in texts)
+    words = " ".join("".join(t.itertext()) for t in texts)
+    assert "Exemple" not in svg and "Design" not in words and "Personnalité" not in words
+    assert "variable-" not in svg and "-glow" not in svg and "-halo" not in svg and "<ellipse" not in svg
+    assert not any(r.get("width") == "616" for r in root.iter(f"{SVG_NS}rect"))  # pas de fond : transparent
+    for center in D.CENTERS:  # les neuf centres sont là
+        assert f'center-{center}"' in svg
+
+
+def test_minimal_palettes_differ_and_keep_the_defined_centre_colours():
+    from hd.themes import GDH, MINIMAL_PALETTES
+    c = _chart(1)
+    nuit = render_bodygraph(c, layout="minimal", palette="nuit", uid="u")
+    jour = render_bodygraph(c, layout="minimal", palette="jour", uid="u")
+    assert nuit != jour
+    assert MINIMAL_PALETTES["jour"]["channel_inactive"] == "#E0CFB3" and MINIMAL_PALETTES["jour"]["center_open"] == "#FFFAF1"
+    for pal in MINIMAL_PALETTES.values():
+        assert pal["center_defined"] == GDH["center_defined"]
+
+
+def test_minimal_layout_is_refused_with_arrows_or_unknown_palette():
+    c = _chart(1)
+    with pytest.raises(ValueError):
+        render_bodygraph(c, layout="minimal", palette="midi", uid="u")
+    with pytest.raises(ValueError):
+        render_bodygraph(c, layout="minimal", show_variables=True, uid="u")
+    with pytest.raises(ValueError):
+        render_bodygraph(c, layout="large", uid="u")
+
+
+def test_default_layout_is_unchanged():
+    c = _chart(1)
+    kw = dict(theme="gdh", name="E", uid="u")
+    assert render_bodygraph(c, layout="full", **kw) == render_bodygraph(c, **kw)
+    assert render_bodygraph(c, layout="full", palette="jour", **kw) == render_bodygraph(c, **kw)
+
+
+def test_api_minimal_layout():
+    code, r = call({**API_FICTIF_1, "layout": "minimal", "palette": "jour"})
+    assert code == 200 and 'viewBox="0 30 616 642"' in r["svg"] and "#E0CFB3" in r["svg"]
+    code, r = call({**API_FICTIF_1, "layout": "minimal"})  # nuit par défaut
+    assert code == 200 and "#5C3F2E" in r["svg"]
+    _, plain = call({**API_FICTIF_1})
+    _, full = call({**API_FICTIF_1, "layout": "full"})
+    assert 'viewBox="0 0 616 840"' in plain["svg"] and 'viewBox="0 0 616 840"' in full["svg"]
+
+
+@pytest.mark.parametrize("body", [
+    {"layout": "large"}, {"layout": "minimal", "palette": "midi"}, {"palette": "jour"},
+    {"layout": "minimal", "show_variables": True}, {"layout": "minimal", "show_variables": ["perspective"]},
+])
+def test_api_refuses_bad_minimal_options(body):
+    code, r = call({**API_FICTIF_1, **body})
+    assert code == 400 and r["error"]["code"] == "invalid_field"
+
+
+def test_minimal_options_are_refused_on_other_routes():
+    for field, value in (("layout", "minimal"), ("palette", "nuit")):
+        code, r = call({"people": [{**API_FICTIF_1, field: value}, API_FICTIF_1]}, path="/v1/composite")
+        assert code == 400 and r["error"]["code"] == "unknown_field"

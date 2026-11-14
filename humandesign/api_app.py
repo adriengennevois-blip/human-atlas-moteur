@@ -30,7 +30,9 @@ navigateur : la clé doit rester secrète).
                       couleur/ton/base, sensibilité à l'heure, précision). « variables » :
                       les 4 flèches, toujours renvoyées ; « show_variables »: true les dessine
                       au-dessus de la Tête, une liste (ex. ["perspective", "motivation"]) n'en
-                      dessine que certaines ; « variable_labels »: true ajoute leur titre
+                      dessine que certaines ; « variable_labels »: true ajoute leur titre ;
+                      « layout »: "minimal" (+ « palette »: "nuit" | "jour") : bodygraph et
+                      colonnes de planètes seuls, fond transparent (appli GoDesignHumain)
 
 Application WSGI sans framework : tourne telle quelle sur o2switch
 (cPanel → « Setup Python App », via passenger_wsgi.py).
@@ -91,10 +93,10 @@ MIN_KEY_LENGTH = 32
 MIN_YEAR, MAX_YEAR = 1801, 2399
 PRECISIONS = ("exacte", "approximative", "inconnue")
 FIELDS = {"date", "time", "time_precision", "tz", "lat", "lon", "place", "name", "skin", "theme", "include_svg", "details", "content_keys",
-          "show_variables", "variable_labels", "reading"}
+          "show_variables", "variable_labels", "reading", "layout", "palette"}
 # Réglages propres à /v1/chart : refusés dans les personnes des autres routes (composite, groupe, transit, retour).
 CHART_ONLY = {"include_svg", "skin", "theme", "details", "content_keys", "show_variables", "variable_labels",
-              "reading"}
+              "reading", "layout", "palette"}
 MAX_NAME = 60
 MAX_PLACE = 200
 
@@ -217,6 +219,20 @@ def parse_request(body) -> dict:
     if not isinstance(want_reading, bool):
         raise _bad("invalid_field", "« reading » doit valoir true ou false")
     show_variables = _variables_option(body)
+    # Mode épuré (appli GoDesignHumain) : bodygraph et colonnes de planètes seuls, fond transparent,
+    # palette « nuit » ou « jour ». Il remplace le thème ; sans « layout », rien ne change.
+    layout = body.get("layout", "full")
+    if layout not in ("full", "minimal"):
+        raise _bad("invalid_field", "« layout » doit valoir full ou minimal")
+    palette = body.get("palette")
+    if palette is not None and layout != "minimal":
+        raise _bad("invalid_field", "« palette » ne s'emploie qu'avec « layout »: \"minimal\"")
+    if layout == "minimal":
+        palette = palette if palette is not None else "nuit"
+        if palette not in ("nuit", "jour"):
+            raise _bad("invalid_field", "« palette » doit valoir nuit ou jour")
+        if show_variables:
+            raise _bad("invalid_field", "le mode épuré ne dessine pas les flèches des variables")
     variable_labels = body.get("variable_labels", False)
     if not isinstance(variable_labels, bool):
         raise _bad("invalid_field", "« variable_labels » doit valoir true ou false")
@@ -224,7 +240,7 @@ def parse_request(body) -> dict:
     return {"local": datetime(day.year, day.month, day.day, hh, mm), "precision": precision,
             **loc, "name": name, "skin": skin, "include_svg": include_svg, "details": want_details,
             "content_keys": want_keys, "show_variables": show_variables, "variable_labels": variable_labels,
-            "reading": want_reading}
+            "reading": want_reading, "layout": layout, "palette": palette or "nuit"}
 
 
 # ---------------------------------------------------------------- calcul
@@ -311,7 +327,8 @@ def compute(req: dict) -> dict:
     if req["include_svg"]:
         out["svg"] = render_bodygraph(c, skin=req["skin"], name=req["name"],
                                       show_variables=req["show_variables"],
-                                      variable_labels=req["variable_labels"])
+                                      variable_labels=req["variable_labels"],
+                                      layout=req.get("layout", "full"), palette=req.get("palette", "nuit"))
     if req.get("details"):  # option : la réponse sans elle reste identique
         out.update(premium_details(c, req["precision"]))
     if req.get("content_keys"):  # option : clés des textes d'interprétation (textes hors dépôt)

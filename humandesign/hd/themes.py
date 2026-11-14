@@ -164,6 +164,32 @@ GDH = {
     "legend_design": "or", "legend_personality": "bleu nuit",
 }
 
+# Mode épuré (layout « minimal ») de GoDesignHumain, posé sur le fond de l'appli : fond transparent,
+# sans lueur des centres. Les centres définis gardent les couleurs de gdh dans les deux palettes.
+#   nuit : sur brun chaud. Design en or, Personnalité en crème (le bleu nuit de gdh ne se lirait pas).
+#   jour : sur blanc doré. Design en cuivre, Personnalité en brun, centres ouverts blanc cassé.
+GDH_NUIT = {
+    **GDH,
+    "design": "#C99A4B", "personality": "#E6D7C2",
+    "design_text": "#D9B06A", "personality_text": "#E6D7C2",
+    # Canaux inactifs et centres ouverts assombris : sur fond brun, le crème de la Personnalité
+    # disparaîtrait sur des canaux clairs.
+    "channel_inactive": "#5C3F2E",
+    "center_open": "#F3E9DA", "center_open_stroke": "#8A6B55",
+    "center_glow": False,
+    "background": {"kind": "none"},
+}
+GDH_JOUR = {
+    **GDH,
+    "design": "#9A5A36", "personality": "#2A1A10",
+    "design_text": "#9A5A36", "personality_text": "#2A1A10",
+    "channel_inactive": "#E0CFB3",
+    "center_open": "#FFFAF1", "center_open_stroke": "#B9A58C",
+    "center_glow": False,
+    "background": {"kind": "none"},
+}
+MINIMAL_PALETTES = {"nuit": GDH_NUIT, "jour": GDH_JOUR}
+
 THEMES = {"classique": CLASSIQUE, "atlas": ATLAS, "composite": COMPOSITE, "gdh": GDH}
 
 # Thèmes que l'API propose pour un thème individuel (paramètre « theme »).
