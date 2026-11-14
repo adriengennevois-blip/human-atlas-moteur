@@ -382,3 +382,49 @@ def test_text_file_is_complete_and_flagged_for_review():
 def test_french_color_names_of_the_digestion_arrow():
     assert [fr for fr, _ in D.VARIABLE_COLOR_NAMES["determination"].values()] == \
         ["Appétit", "Goût", "Soif", "Toucher", "Son", "Lumière"]
+
+
+# ---------------------------------------------------------------- une partie des flèches seulement
+
+def _drawn(svg):
+    return {n for n in NAMES if f"variable-{n}" in svg}
+
+
+@pytest.mark.parametrize("theme", PUBLIC_THEMES)
+def test_only_some_arrows(theme):
+    c = _chart(1)
+    svg = render_bodygraph(c, theme=theme, name="E", uid="u", show_variables=["perspective", "motivation"], variable_labels=True)
+    ElementTree.fromstring(svg)
+    assert _drawn(svg) == {"perspective", "motivation"}
+    # mêmes flèches, au même endroit et du même dessin que dans la carte complète
+    full = render_bodygraph(c, theme=theme, name="E", uid="u", show_variables=True, variable_labels=True)
+    _, part_groups = _groups(svg)
+    _, full_groups = _groups(full)
+    for n in ("perspective", "motivation"):
+        assert ElementTree.tostring(part_groups[n]) == ElementTree.tostring(full_groups[n])
+
+
+def test_list_of_all_four_equals_true_and_empty_list_equals_false():
+    c = _chart(1)
+    kw = dict(theme="gdh", name="E", uid="u", variable_labels=True)
+    assert render_bodygraph(c, show_variables=list(NAMES), **kw) == render_bodygraph(c, show_variables=True, **kw)
+    assert render_bodygraph(c, show_variables=[], **kw) == render_bodygraph(c, show_variables=False, **kw)
+
+
+def test_unknown_variable_name_is_refused_by_the_renderer():
+    with pytest.raises(ValueError):
+        render_bodygraph(_chart(1), theme="gdh", uid="u", show_variables=["digestion"])
+
+
+def test_api_accepts_a_list_of_arrows():
+    code, r = call({**API_FICTIF_1, "theme": "gdh", "show_variables": ["perspective", "motivation"], "variable_labels": True})
+    assert code == 200 and _drawn(r["svg"]) == {"perspective", "motivation"}
+    code, r = call({"chart": API_FICTIF_1, "at": "2026-11-02T12:00:00Z", "theme": "gdh",
+                    "show_variables": ["perspective", "motivation"]}, path="/v1/transit/chart")
+    assert code == 200 and _drawn(r["svg"]) == {"perspective", "motivation"}
+
+
+@pytest.mark.parametrize("value", [["digestion"], ["perspective", "perspective"], [1], "perspective", {"perspective": True}])
+def test_api_refuses_bad_lists(value):
+    code, r = call({**API_FICTIF_1, "show_variables": value})
+    assert code == 400 and r["error"]["code"] == "invalid_field"

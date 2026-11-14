@@ -645,12 +645,32 @@ def _arrow_points(cx, cy, orient):
             (neck, cy + sh), (tail, cy + sh)]
 
 
-def _variables(chart, s, labels: bool) -> str:
-    """Les quatre flèches, couleurs prises dans le thème (variable_design / variable_personality)."""
+VARIABLE_NAMES = tuple(name for name, _, _ in VAR_LAYOUT)
+
+
+def variables_to_draw(show_variables) -> frozenset:
+    """Flèches à dessiner : True → les quatre, False / None → aucune, ou une liste de noms
+    (« determination », « environment », « perspective », « motivation »)."""
+    if show_variables is True:
+        return frozenset(VARIABLE_NAMES)
+    if not show_variables:
+        return frozenset()
+    names = frozenset(show_variables)
+    unknown = names - set(VARIABLE_NAMES)
+    if unknown:
+        raise ValueError(f"variables inconnues : {', '.join(sorted(unknown))}")
+    return names
+
+
+def _variables(chart, s, labels: bool, only: frozenset = frozenset(VARIABLE_NAMES)) -> str:
+    """Les flèches demandées (les quatre par défaut), couleurs prises dans le thème
+    (variable_design / variable_personality). Une flèche absente laisse sa place vide."""
     cx0 = OFFSET[0] + 200                          # axe du bodygraph (et de la Tête)
     data = chart_variables(chart)
     out = []
     for name, row, side in VAR_LAYOUT:
+        if name not in only:
+            continue
         v = data[name]
         cx = cx0 + (-VAR_AXIS_DX if side == "design" else VAR_AXIS_DX)
         cy = VAR_ROW_Y + row * VAR_ROW_PITCH
@@ -692,7 +712,8 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
     Un thème qui a un id_prefix le place devant (ex. « gdh-hd1a2b3c4d »).
 
     show_variables : dessine les quatre flèches des variables de part et d'autre de la Tête, à sa
-    hauteur (deux à gauche, deux à droite). Le cadre ne change pas. Faux par défaut : la carte
+    hauteur (deux à gauche, deux à droite). Une liste de noms (ex. ["perspective", "motivation"])
+    ne dessine que celles-ci, à leur place habituelle. Le cadre ne change pas. Faux par défaut : la carte
     est alors identique, à l'octet, à celle d'avant cette option. Demande un thème calculé
     (chart). variable_labels : ajoute le titre sous chaque flèche (sans effet si show_variables
     est faux).
@@ -711,7 +732,8 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
         active_gates = chart.active_gates
     if active_gates is None:
         raise ValueError("fournir chart ou active_gates")
-    if show_variables and chart is None:
+    to_draw = variables_to_draw(show_variables)
+    if to_draw and chart is None:
         raise ValueError("show_variables demande un thème calculé (chart), pas seulement des portes")
     active, channels, defined = derive(active_gates)
     if chart is not None:  # garde-fou : le dessin doit dire la même chose que le moteur
@@ -836,8 +858,8 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
             x, y = gate_label(g)
             parts.append(f'<circle class="transit-ring-{g}" cx="{x + OFFSET[0]:.1f}" cy="{y + OFFSET[1]:.1f}" r="9.6" '
                          f'fill="none" stroke="{s["transit"]}" stroke-width="{s["transit_ring"]}"/>')
-    if show_variables:
-        parts.append(_variables(chart, s, variable_labels))
+    if to_draw:
+        parts.append(_variables(chart, s, variable_labels, to_draw))
     if show_planets:
         parts.append(_planet_columns(chart, s))
     if show_caption:

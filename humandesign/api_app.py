@@ -29,7 +29,8 @@ navigateur : la clé doit rester secrète).
   POST /v1/chart    → thème calculé (+ SVG du bodygraph ; « details »: true ajoute
                       couleur/ton/base, sensibilité à l'heure, précision). « variables » :
                       les 4 flèches, toujours renvoyées ; « show_variables »: true les dessine
-                      au-dessus de la Tête, « variable_labels »: true ajoute leur titre
+                      au-dessus de la Tête, une liste (ex. ["perspective", "motivation"]) n'en
+                      dessine que certaines ; « variable_labels »: true ajoute leur titre
 
 Application WSGI sans framework : tourne telle quelle sur o2switch
 (cPanel → « Setup Python App », via passenger_wsgi.py).
@@ -68,7 +69,7 @@ from zoneinfo import available_timezones
 
 from hd import data as D
 from hd import precision as P
-from hd.bodygraph import SKINS, render_bodygraph, summary_sentence, validate_template
+from hd.bodygraph import SKINS, VARIABLE_NAMES, render_bodygraph, summary_sentence, validate_template
 from hd.themes import PUBLIC_THEMES
 from hd.chart import build_chart
 from hd.composite import composite, render_composite
@@ -215,9 +216,7 @@ def parse_request(body) -> dict:
     want_reading = body.get("reading", False)
     if not isinstance(want_reading, bool):
         raise _bad("invalid_field", "« reading » doit valoir true ou false")
-    show_variables = body.get("show_variables", False)
-    if not isinstance(show_variables, bool):
-        raise _bad("invalid_field", "« show_variables » doit valoir true ou false")
+    show_variables = _variables_option(body)
     variable_labels = body.get("variable_labels", False)
     if not isinstance(variable_labels, bool):
         raise _bad("invalid_field", "« variable_labels » doit valoir true ou false")
@@ -558,6 +557,19 @@ def _natal(person, field: str = "chart") -> dict:
         raise ApiError(e.status, e.code, f"thème natal : {e.message}") from None
 
 
+def _variables_option(body):
+    """« show_variables » : true (les quatre flèches), false (aucune), ou une liste de noms parmi
+    determination, environment, perspective, motivation (sans doublon)."""
+    v = body.get("show_variables", False)
+    if isinstance(v, bool):
+        return v
+    if (isinstance(v, list) and all(isinstance(n, str) for n in v) and len(set(v)) == len(v)
+            and set(v) <= set(VARIABLE_NAMES)):
+        return list(v)
+    raise _bad("invalid_field", "« show_variables » doit valoir true, false ou une liste parmi "
+               + ", ".join(VARIABLE_NAMES))
+
+
 def _bool(body, key: str, default: bool) -> bool:
     v = body.get(key, default)
     if not isinstance(v, bool):
@@ -590,7 +602,7 @@ def parse_transit_chart(body) -> dict:
     return {"chart": _natal(body.get("chart")),
             "at": _instant(body["at"]) if body.get("at") is not None else datetime.now(timezone.utc),
             "theme": theme, "include_svg": _bool(body, "include_svg", True),
-            "show_variables": _bool(body, "show_variables", False),
+            "show_variables": _variables_option(body),
             "variable_labels": _bool(body, "variable_labels", False)}
 
 
