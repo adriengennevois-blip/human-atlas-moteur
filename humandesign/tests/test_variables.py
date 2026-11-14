@@ -504,3 +504,12 @@ def test_minimal_options_are_refused_on_other_routes():
     for field, value in (("layout", "minimal"), ("palette", "nuit")):
         code, r = call({"people": [{**API_FICTIF_1, field: value}, API_FICTIF_1]}, path="/v1/composite")
         assert code == 400 and r["error"]["code"] == "unknown_field"
+
+
+def test_minimal_layout_numbers_are_readable_on_a_phone():
+    # 350 px de large sur un téléphone : 20 / 616 × 350 ≈ 11,4 px (au moins 11 px demandés)
+    svg = render_bodygraph(_chart(1), layout="minimal", palette="jour", uid="u")
+    sizes = {float(x) for x in re.findall(r'<tspan[^>]*font-size="([\d.]+)"[^>]*>\d+\.\d', svg)}
+    assert sizes == {20.0} and 20 / 616 * 350 >= 11
+    full = render_bodygraph(_chart(1), theme="gdh", uid="u")
+    assert {float(x) for x in re.findall(r'<tspan[^>]*font-size="([\d.]+)"[^>]*>\d+\.\d', full)} == {15.0}

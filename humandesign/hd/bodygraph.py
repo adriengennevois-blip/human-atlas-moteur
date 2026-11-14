@@ -186,6 +186,7 @@ CHANNEL_CURVES = {k: (_S(*a), _S(*b)) for k, (a, b) in _CURVES_REF.items()}
 
 OFFSET = (108, 24)         # position du bodygraph dans la page
 PAGE_W, PAGE_H = 616, 840  # taille de la page (avec colonnes et légende)
+MINIMAL_NUM, MINIMAL_GLYPH = 20, 17  # mode épuré : taille des porte.ligne et des symboles des colonnes
 MINIMAL_Y, MINIMAL_H = 30, 642  # mode épuré : cadré du haut des colonnes au bas du bodygraph
 
 
@@ -530,7 +531,7 @@ def _atmosphere(bg, uid):
            C{116 + ox},{90 + oy} {132 + ox},{0 + oy} {200 + ox},{0 + oy} Z"/>"""
 
 
-def _planet_columns(chart, s, headings=True):
+def _planet_columns(chart, s, headings=True, size=15, glyph_size=13):
     if chart is None or not getattr(chart, "design", None):
         return ""
     num, title = s["font_num"], s["font_title"]
@@ -547,11 +548,11 @@ def _planet_columns(chart, s, headings=True):
         d, p = chart.design[planet], chart.personality[planet]
         glyph = escape(D.PLANET_GLYPHS[planet])
         out.append(f'<text x="22" y="{y}" fill="{s["design_text"]}">'
-                   f'<tspan font-family="{SYMBOLS}" font-size="13">{glyph}</tspan>'
-                   f'<tspan dx="7" font-family="{num}" font-size="15"{w}>{d.gate}.{d.line}</tspan></text>')
+                   f'<tspan font-family="{SYMBOLS}" font-size="{glyph_size}">{glyph}</tspan>'
+                   f'<tspan dx="7" font-family="{num}" font-size="{size}"{w}>{d.gate}.{d.line}</tspan></text>')
         out.append(f'<text x="{PAGE_W - 22}" y="{y}" text-anchor="end" fill="{s["personality_text"]}">'
-                   f'<tspan font-family="{num}" font-size="15"{w}>{p.gate}.{p.line}</tspan>'
-                   f'<tspan dx="7" font-family="{SYMBOLS}" font-size="13">{glyph}</tspan></text>')
+                   f'<tspan font-family="{num}" font-size="{size}"{w}>{p.gate}.{p.line}</tspan>'
+                   f'<tspan dx="7" font-family="{SYMBOLS}" font-size="{glyph_size}">{glyph}</tspan></text>')
     return "\n  ".join(out)
 
 
@@ -883,7 +884,9 @@ def render_bodygraph(chart=None, *, active_gates=None, skin="atlas", theme=None,
     if to_draw:
         parts.append(_variables(chart, s, variable_labels, to_draw))
     if show_planets:
-        parts.append(_planet_columns(chart, s, headings=not minimal))
+        # Mode épuré : chiffres agrandis (20 sur 616 de large, soit au moins 11 px sur un téléphone de 350 px).
+        parts.append(_planet_columns(chart, s, headings=False, size=MINIMAL_NUM, glyph_size=MINIMAL_GLYPH)
+                     if minimal else _planet_columns(chart, s))
     if show_caption:
         parts.append(_caption(chart, name, s, uid, transit_note))
     parts.insert(defs_at, paint.block())
